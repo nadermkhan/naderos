@@ -19,8 +19,26 @@ const categories = [
   { id: 'events', name: 'Events', description: 'A roundup of the weeks best content.', txt:'Was ist diese Woche los in Laaber? Jeden Montag liefern wir Ihnen die Veranstaltungen für die kommende Woche! Erfahren Sie auf einen Blick, welche öffentlichen Feste, Märkte, Konzerte oder Sportevents anstehen' },
 ];
 
+// Add type definitions
+interface OneSignalState {
+  isLoading: boolean;
+  isInitialized: boolean;
+  isSubscribed: boolean;
+  permission: string;
+  userId: string | null;
+  error: string | null;
+}
+
+// Declare window.OneSignal type
+declare global {
+  interface Window {
+    OneSignal: any;
+    OneSignalDeferred: any[];
+  }
+}
+
 export default function NotificationApp() {
-  const [oneSignalState, setOneSignalState] = useState({
+  const [oneSignalState, setOneSignalState] = useState<OneSignalState>({
     isLoading: true,
     isInitialized: false,
     isSubscribed: false,
@@ -28,7 +46,8 @@ export default function NotificationApp() {
     userId: null,
     error: null
   });
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  // Fix: Change from null to string | null
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('selectedNotificationCategory');
@@ -36,7 +55,7 @@ export default function NotificationApp() {
       setSelectedCategory(saved);
     }
 
-    let OneSignalInstance = null;
+    let OneSignalInstance: any = null;
 
     const initializeOneSignal = async () => {
       try {
@@ -44,10 +63,9 @@ export default function NotificationApp() {
           return;
         }
 
-     
-      await new Promise((resolve, reject) => {
-         if (window.OneSignal) {
-            resolve(window.OneSignal);
+        await new Promise<void>((resolve, reject) => {
+          if (window.OneSignal) {
+            resolve();
             return;
           }
 
@@ -58,8 +76,8 @@ export default function NotificationApp() {
           script.async = true;
           
           script.onload = () => {
-            window.OneSignalDeferred.push((OneSignal) => {
-              resolve(OneSignal);
+            window.OneSignalDeferred.push(() => {
+              resolve();
             });
           };
           
@@ -69,11 +87,12 @@ export default function NotificationApp() {
           
           document.head.appendChild(script);
         });
-      OneSignalInstance = await new Promise((resolve) => {
+
+        OneSignalInstance = await new Promise((resolve) => {
           if (window.OneSignal) {
             resolve(window.OneSignal);
           } else {
-            window.OneSignalDeferred.push((OneSignal) => {
+            window.OneSignalDeferred.push((OneSignal: any) => {
               resolve(OneSignal);
             });
           }
@@ -105,7 +124,6 @@ export default function NotificationApp() {
               error: null
             });
 
-       
             if (selectedCategory) {
               await OneSignalInstance.User.addTag('category', selectedCategory);
             }
@@ -119,8 +137,7 @@ export default function NotificationApp() {
             });
           }
 
-         
-          OneSignalInstance.User.PushSubscription.addEventListener('change', async (event) => {
+          OneSignalInstance.User.PushSubscription.addEventListener('change', async (event: any) => {
             const isNowOptedIn = event.current.optedIn;
             const newId = event.current.id;
             
@@ -130,20 +147,19 @@ export default function NotificationApp() {
               userId: isNowOptedIn ? newId : null
             }));
 
-           
             if (isNowOptedIn && selectedCategory) {
               await OneSignalInstance.User.addTag('category', selectedCategory);
             }
           });
 
-          OneSignalInstance.Notifications.addEventListener('permissionChange', (permission) => {
+          OneSignalInstance.Notifications.addEventListener('permissionChange', (permission: string) => {
             setOneSignalState(prev => ({ ...prev, permission }));
           });
         } else {
           throw new Error('Push notifications are not supported in this browser');
         }
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('OneSignal initialization error:', error);
         setOneSignalState({
           isLoading: false,
@@ -157,7 +173,7 @@ export default function NotificationApp() {
     };
 
     initializeOneSignal();
-  }, []);
+  }, [selectedCategory]);
 
   const handleSubscribe = async () => {
     try {
@@ -176,28 +192,26 @@ export default function NotificationApp() {
     }
   };
 
-  const handleCategoryChange = async (categoryId) => {
+  const handleCategoryChange = async (categoryId: string) => {
     setSelectedCategory(categoryId);
     localStorage.setItem('selectedNotificationCategory', categoryId);
 
-
     const category = categories.find(cat => cat.id === categoryId);
     
-       if (category) {
+    if (category) {
       addNotification({
         title: `Subscribed to ${category.name}`,
         subtitle: `Thank you for subscribing to ${category.name}`,
         message: category.txt,
         theme: 'darkblue',
-         native: true,
+        native: true,
         duration: 5000,
-         //icon: '/notification-icon.png', 
         vibrate: 1,
         onClick: () => console.log('Notification clicked')
       });
     }
 
-      if (oneSignalState.isSubscribed && window.OneSignal) {
+    if (oneSignalState.isSubscribed && window.OneSignal) {
       try {
         await window.OneSignal.User.addTag('category', categoryId);
       } catch (error) {
@@ -234,8 +248,8 @@ export default function NotificationApp() {
             You have blocked notifications. Please enable them in your browser settings:
             <ol className="mt-2 ml-4 list-decimal text-sm">
               <li>Click the lock icon in your address bar</li>
-              <li>Find "Notifications" in the permissions</li>
-              <li>Change it to "Allow"</li>
+              <li>Find &quot;Notifications&quot; in the permissions</li>
+              <li>Change it to &quot;Allow&quot;</li>
               <li>Refresh this page</li>
             </ol>
           </AlertDescription>
@@ -299,7 +313,7 @@ export default function NotificationApp() {
           <CardHeader>
             <CardTitle>Choose Your Category</CardTitle>
             <CardDescription>
-              Select the type of notifications you'd like to receive
+              Select the type of notifications you&apos;d like to receive
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -329,9 +343,7 @@ export default function NotificationApp() {
           </CardContent>
         </Card>
 
-        <footer className="text-center text-sm text-muted-foreground">
-          <p>Powered by React & OneSignal</p>
-        </footer>
+    
       </div>
     </div>
   );
