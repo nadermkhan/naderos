@@ -154,23 +154,14 @@ export default function NotificationApp() {
         const fullPath = isGitHubPages ? `/${repoName}/` : "/"
 
         // Initialize OneSignal with correct paths
-        await OneSignalInstance.init({
-          appId: ONE_SIGNAL_APP_ID,
-          allowLocalhostAsSecureOrigin: true,
-          notifyButton: {
-            enable: false,
-          },
-          // Set correct paths for GitHub Pages
-          ...(isGitHubPages && {
-            path: fullPath,
-            serviceWorkerParam: {
-              scope: fullPath,
-            },
-          }),
-          // Use default service worker names (OneSignal will handle the paths)
-          serviceWorkerPath: "OneSignalSDKWorker.js",
-          serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js",
-        })
+       await OneSignalInstance.init({
+  appId: ONE_SIGNAL_APP_ID,
+  allowLocalhostAsSecureOrigin: true,
+  notifyButton: {
+    enable: false
+  }
+  // No need for custom serviceWorkerParam
+});
 
         window.OneSignalInitialized = true
 
