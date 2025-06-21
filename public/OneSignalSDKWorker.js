@@ -1,1 +1,1 @@
-importScripts('/naderos/OneSignalSDK.sw.js');
+importScripts('OneSignalSDK.sw.js');
