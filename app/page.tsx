@@ -127,7 +127,7 @@ export default function NotificationApp() {
         // Initialize only once
   
 
-        await OneSignalInstance.init({
+await OneSignalInstance.init({
   appId: ONE_SIGNAL_APP_ID,
   allowLocalhostAsSecureOrigin: true,
   notifyButton: {
@@ -136,9 +136,12 @@ export default function NotificationApp() {
   serviceWorkerParam: {
     scope: '/naderos/',
     path: '/naderos/OneSignalSDKWorker.js'
+  },
+  serviceWorkerUpdaterParam: {
+    scope: '/naderos/',
+    path: '/naderos/OneSignalSDKUpdaterWorker.js'
   }
 });
-
         // Mark as initialized globally
         window.OneSignalInitialized = true;
 
