@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 
-const ONE_SIGNAL_APP_ID = "3b3ec461-9b51-4784-aac8-cf5be3e09c61"
+const ONE_SIGNAL_APP_ID = "7b2a710b-6926-4865-b66b-6f6abf85b0ee"
 
 const categories = [
   {
