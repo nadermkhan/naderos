@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import addNotification from 'react-push-notification';
 
-const ONE_SIGNAL_APP_ID = "b928d583-4f85-40ca-b2d6-fd219fd7e2ef";
+const ONE_SIGNAL_APP_ID = "3b3ec461-9b51-4784-aac8-cf5be3e09c61";
 
 const categories = [
   { id: 'weekly_report', name: 'Weekly Report', description: 'Latest news in technology and innovation.',txt:'hr Wochenrückblick aus dem Rathaus! Jeden Freitag erhalten Sie unseren Wochenbericht kompakt zusammengefasst, was die Verwaltung diese Woche im Ort bewegt hat. Von wichtigen Entscheidungen über Projekte,Veranstaltungen oder interessante Fakten über die Gemeinde. Bleiben Sie mühelos auf dem Laufenden über alles, was in Laaber passiert ist.' },
@@ -114,7 +114,7 @@ export default function NotificationApp() {
           document.head.appendChild(script);
         });
 
-        const OneSignalInstance = await new Promise((resolve) => {
+        const OneSignalInstance = await new Promise<any>((resolve) => {
           if (window.OneSignal) {
             resolve(window.OneSignal);
           } else {
