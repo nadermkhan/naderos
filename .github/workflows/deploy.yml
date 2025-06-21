@@ -38,8 +38,26 @@ jobs:
         
       - name: Copy service workers to root
         run: |
-          cp out/naderos/OneSignalSDKWorker.js out/
-          cp out/naderos/OneSignalSDKUpdaterWorker.js out/
+          # Check if the service worker files exist before copying
+          if [ -f "out/naderos/OneSignalSDKWorker.js" ]; then
+            cp out/naderos/OneSignalSDKWorker.js out/
+            echo "✓ Copied OneSignalSDKWorker.js to root"
+          else
+            echo "⚠ OneSignalSDKWorker.js not found in out/naderos/"
+          fi
+          
+          if [ -f "out/naderos/OneSignalSDKUpdaterWorker.js" ]; then
+            cp out/naderos/OneSignalSDKUpdaterWorker.js out/
+            echo "✓ Copied OneSignalSDKUpdaterWorker.js to root"
+          else
+            echo "⚠ OneSignalSDKUpdaterWorker.js not found in out/naderos/"
+          fi
+          
+          # List files to verify
+          echo "Files in out/:"
+          ls -la out/
+          echo "Files in out/naderos/:"
+          ls -la out/naderos/ || echo "naderos directory not found"
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
