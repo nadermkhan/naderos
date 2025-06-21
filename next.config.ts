@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-output: 'export',
- // basePath: '/naderos', 
-  /* config options here */
-    transpilePackages: ['onesignal'],
+  output: 'export',
+  basePath: '/naderos',
+  assetPrefix: '/naderos',
+  transpilePackages: ['onesignal'],
 };
 
 export default nextConfig;
