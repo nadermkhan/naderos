@@ -74,12 +74,15 @@ export default function NotificationApp() {
   const [notificationMessage, setNotificationMessage] = useState("")
   const initializationRef = useRef(false)
 
+  // Load saved category from localStorage on component mount
   useEffect(() => {
     const saved = localStorage.getItem("selectedNotificationCategory")
     if (saved) {
       setSelectedCategory(saved)
     }
+  }, [])
 
+  useEffect(() => {
     const initializeOneSignal = async () => {
       if (initializationRef.current || window.OneSignalInitialized) {
         return
@@ -107,6 +110,18 @@ export default function NotificationApp() {
               userId: subscriptionId,
               error: null,
             })
+
+            // Store subscription info with category in localStorage
+            if (isOptedIn && subscriptionId) {
+              const savedCategory = localStorage.getItem("selectedNotificationCategory")
+              if (savedCategory) {
+                localStorage.setItem("notificationSubscription", JSON.stringify({
+                  userId: subscriptionId,
+                  category: savedCategory,
+                  subscribedAt: new Date().toISOString()
+                }))
+              }
+            }
           }
           return
         }
@@ -176,9 +191,14 @@ export default function NotificationApp() {
               error: null,
             })
 
-            // Use addTags (plural) instead of addTag
-            if (selectedCategory) {
-              await OneSignalInstance.User.addTags({ category: selectedCategory })
+            // Store subscription info with category in localStorage
+            const savedCategory = localStorage.getItem("selectedNotificationCategory")
+            if (savedCategory && subscriptionId) {
+              localStorage.setItem("notificationSubscription", JSON.stringify({
+                userId: subscriptionId,
+                category: savedCategory,
+                subscribedAt: new Date().toISOString()
+              }))
             }
           } else {
             setOneSignalState({
@@ -202,8 +222,19 @@ export default function NotificationApp() {
               userId: isNowOptedIn ? newId : null,
             }))
 
-            if (isNowOptedIn && selectedCategory) {
-              await OneSignalInstance.User.addTags({ category: selectedCategory })
+            // Update localStorage when subscription changes
+            if (isNowOptedIn && newId) {
+              const savedCategory = localStorage.getItem("selectedNotificationCategory")
+              if (savedCategory) {
+                localStorage.setItem("notificationSubscription", JSON.stringify({
+                  userId: newId,
+                  category: savedCategory,
+                  subscribedAt: new Date().toISOString()
+                }))
+              }
+            } else {
+              // Clear subscription data if user unsubscribes
+              localStorage.removeItem("notificationSubscription")
             }
           })
 
@@ -229,14 +260,16 @@ export default function NotificationApp() {
     initializeOneSignal()
   }, [])
 
+  // Update localStorage whenever subscription state or category changes
   useEffect(() => {
-    if (oneSignalState.isSubscribed && selectedCategory && window.OneSignal) {
-      // Use addTags (plural) instead of addTag
-      window.OneSignal.User.addTags({ category: selectedCategory }).catch((error: any) => {
-        console.error("Error updating tags:", error)
-      })
+    if (oneSignalState.isSubscribed && selectedCategory && oneSignalState.userId) {
+      localStorage.setItem("notificationSubscription", JSON.stringify({
+        userId: oneSignalState.userId,
+        category: selectedCategory,
+        subscribedAt: new Date().toISOString()
+      }))
     }
-  }, [selectedCategory, oneSignalState.isSubscribed])
+  }, [selectedCategory, oneSignalState.isSubscribed, oneSignalState.userId])
 
   const showCustomNotification = (message: string) => {
     setNotificationMessage(message)
@@ -258,12 +291,22 @@ export default function NotificationApp() {
 
   const handleCategoryChange = async (categoryId: string) => {
     setSelectedCategory(categoryId)
+    // Save to localStorage immediately when category changes
     localStorage.setItem("selectedNotificationCategory", categoryId)
 
     const category = categories.find((cat) => cat.id === categoryId)
 
     if (category) {
-      showCustomNotification(`Subscribed to ${category.name}: ${category.txt}`)
+      showCustomNotification(`Selected ${category.name}`)
+      
+      // If already subscribed, update the subscription data
+      if (oneSignalState.isSubscribed && oneSignalState.userId) {
+        localStorage.setItem("notificationSubscription", JSON.stringify({
+          userId: oneSignalState.userId,
+          category: categoryId,
+          subscribedAt: new Date().toISOString()
+        }))
+      }
     }
   }
 
@@ -341,7 +384,7 @@ export default function NotificationApp() {
         <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
         <AlertDescription className="text-muted-foreground">
           <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
-          <div>Category: {selectedCategory || "None selected"}</div>
+          <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
         </AlertDescription>
       </Alert>
     )
@@ -369,7 +412,7 @@ export default function NotificationApp() {
         <Card>
           <CardHeader>
             <CardTitle>Notification Status</CardTitle>
-          </CardHeader>
+                    </CardHeader>
           <CardContent>{renderStatus()}</CardContent>
         </Card>
 
@@ -400,6 +443,6 @@ export default function NotificationApp() {
           <p>Nader Mahbub Khan</p>
         </footer>
       </div>
-        </div>
+    </div>
   )
 }
