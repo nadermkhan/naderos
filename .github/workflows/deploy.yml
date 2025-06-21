@@ -36,6 +36,11 @@ jobs:
       - name: Build
         run: npm run build
         
+      - name: Copy service workers to root
+        run: |
+          cp out/naderos/OneSignalSDKWorker.js out/
+          cp out/naderos/OneSignalSDKUpdaterWorker.js out/
+        
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
