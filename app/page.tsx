@@ -1,40 +1,62 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import addNotification from 'react-push-notification';
+import { useState, useEffect, useRef } from "react"
+import { Bell, CheckCircle, Loader2, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 
-const ONE_SIGNAL_APP_ID = "3b3ec461-9b51-4784-aac8-cf5be3e09c61";
+const ONE_SIGNAL_APP_ID = "3b3ec461-9b51-4784-aac8-cf5be3e09c61"
 
 const categories = [
-  { id: 'weekly_report', name: 'Weekly Report', description: 'Latest news in technology and innovation.',txt:'hr Wochenrückblick aus dem Rathaus! Jeden Freitag erhalten Sie unseren Wochenbericht kompakt zusammengefasst, was die Verwaltung diese Woche im Ort bewegt hat. Von wichtigen Entscheidungen über Projekte,Veranstaltungen oder interessante Fakten über die Gemeinde. Bleiben Sie mühelos auf dem Laufenden über alles, was in Laaber passiert ist.' },
-  { id: 'townhall_news', name: 'Town Hall News', description: 'Announcements for our new products.',txt:'Hier erhalten Sie alle allgemeinen Informationen aus der Verwaltung. Wir informieren Sie über Schließtage, geänderte Offnungszeiten, bevorstehende Gemeinderatssitzungen, wichtige Ergebnisse aus dem Haushaltsbericht, geplante Bauvorhaben der Gemeinde oder ein neues Mitteilungsblatt.' },
-  { id: 'emergencies', name: 'Emergencies', description: 'Exclusive discounts and promotions.', txt:'Dieser Kanal ist für wichtige Informationen im Notfall oder bei Katastrophen. Ob Unwetterwarnungen, Hochwasser oder andere akute Gefahren im Ortsbereich wir informieren Sie umgehend.' },
-  { id: 'closures_and_disruptions', name: 'Closures and disruptions', description: 'Updates and news from our team.', txt:'Hier gibt es aktuelle Meldungen zur öffentlichen Versorgung und zum Verkehr. Das bedeutet: Sofortige Infos zu Straßensperrungen, wichtigen Baustellen und anderen relevanten Beeinträchtigungen' },
-  { id: 'events', name: 'Events', description: 'A roundup of the weeks best content.', txt:'Was ist diese Woche los in Laaber? Jeden Montag liefern wir Ihnen die Veranstaltungen für die kommende Woche! Erfahren Sie auf einen Blick, welche öffentlichen Feste, Märkte, Konzerte oder Sportevents anstehen' },
-];
+  {
+    id: "weekly_report",
+    name: "Weekly Report",
+    description: "Latest news in technology and innovation.",
+    txt: "Ihr Wochenrückblick aus dem Rathaus! Jeden Freitag erhalten Sie unseren Wochenbericht kompakt zusammengefasst, was die Verwaltung diese Woche im Ort bewegt hat. Von wichtigen Entscheidungen über Projekte, Veranstaltungen oder interessante Fakten über die Gemeinde. Bleiben Sie mühelos auf dem Laufenden über alles, was in Laaber passiert ist.",
+  },
+  {
+    id: "townhall_news",
+    name: "Town Hall News",
+    description: "Announcements for our new products.",
+    txt: "Hier erhalten Sie alle allgemeinen Informationen aus der Verwaltung. Wir informieren Sie über Schließtage, geänderte Öffnungszeiten, bevorstehende Gemeinderatssitzungen, wichtige Ergebnisse aus dem Haushaltsbericht, geplante Bauvorhaben der Gemeinde oder ein neues Mitteilungsblatt.",
+  },
+  {
+    id: "emergencies",
+    name: "Emergencies",
+    description: "Exclusive discounts and promotions.",
+    txt: "Dieser Kanal ist für wichtige Informationen im Notfall oder bei Katastrophen. Ob Unwetterwarnungen, Hochwasser oder andere akute Gefahren im Ortsbereich wir informieren Sie umgehend.",
+  },
+  {
+    id: "closures_and_disruptions",
+    name: "Closures and disruptions",
+    description: "Updates and news from our team.",
+    txt: "Hier gibt es aktuelle Meldungen zur öffentlichen Versorgung und zum Verkehr. Das bedeutet: Sofortige Infos zu Straßensperrungen, wichtigen Baustellen und anderen relevanten Beeinträchtigungen",
+  },
+  {
+    id: "events",
+    name: "Events",
+    description: "A roundup of the weeks best content.",
+    txt: "Was ist diese Woche los in Laaber? Jeden Montag liefern wir Ihnen die Veranstaltungen für die kommende Woche! Erfahren Sie auf einen Blick, welche öffentlichen Feste, Märkte, Konzerte oder Sportevents anstehen",
+  },
+]
 
-// Add type definitions
 interface OneSignalState {
-  isLoading: boolean;
-  isInitialized: boolean;
-  isSubscribed: boolean;
-  permission: string;
-  userId: string | null;
-  error: string | null;
+  isLoading: boolean
+  isInitialized: boolean
+  isSubscribed: boolean
+  permission: string
+  userId: string | null
+  error: string | null
 }
 
-// Declare window.OneSignal type
 declare global {
   interface Window {
-    OneSignal: any;
-    OneSignalDeferred: any[];
-    OneSignalInitialized?: boolean;
+    OneSignal: any
+    OneSignalDeferred: any[]
+    OneSignalInitialized?: boolean
   }
 }
 
@@ -43,130 +65,134 @@ export default function NotificationApp() {
     isLoading: true,
     isInitialized: false,
     isSubscribed: false,
-    permission: 'default',
+    permission: "default",
     userId: null,
-    error: null
-  });
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const initializationRef = useRef(false);
+    error: null,
+  })
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [showNotification, setShowNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState("")
+  const initializationRef = useRef(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem('selectedNotificationCategory');
+    const saved = localStorage.getItem("selectedNotificationCategory")
     if (saved) {
-      setSelectedCategory(saved);
+      setSelectedCategory(saved)
     }
 
     const initializeOneSignal = async () => {
-      // Prevent multiple initializations
       if (initializationRef.current || window.OneSignalInitialized) {
-        return;
+        return
       }
-      initializationRef.current = true;
+      initializationRef.current = true
 
       try {
-        if (typeof window === 'undefined') {
-          return;
+        if (typeof window === "undefined") {
+          return
         }
 
         // Check if OneSignal is already initialized
         if (window.OneSignal && window.OneSignal.initialized) {
-          // OneSignal is already initialized, just update state
-          const isPushSupported = window.OneSignal.Notifications.isPushSupported();
+          const isPushSupported = window.OneSignal.Notifications.isPushSupported()
           if (isPushSupported) {
-            const permission = window.OneSignal.Notifications.permission;
-            const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn;
-            const subscriptionId = isOptedIn ? await window.OneSignal.User.PushSubscription.id : null;
-            
+            const permission = window.OneSignal.Notifications.permission
+            const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn
+            const subscriptionId = isOptedIn ? await window.OneSignal.User.PushSubscription.id : null
+
             setOneSignalState({
               isLoading: false,
               isInitialized: true,
               isSubscribed: isOptedIn,
               permission,
               userId: subscriptionId,
-              error: null
-            });
+              error: null,
+            })
           }
-          return;
+          return
         }
 
+        // Load OneSignal SDK
         await new Promise<void>((resolve, reject) => {
           if (window.OneSignal) {
-            resolve();
-            return;
+            resolve()
+            return
           }
 
-          window.OneSignalDeferred = window.OneSignalDeferred || [];
-          
-          const script = document.createElement('script');
-          script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-          script.async = true;
-          
+          window.OneSignalDeferred = window.OneSignalDeferred || []
+
+          const script = document.createElement("script")
+          script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+          script.async = true
+
           script.onload = () => {
             window.OneSignalDeferred.push(() => {
-              resolve();
-            });
-          };
-          
+              resolve()
+            })
+          }
+
           script.onerror = (error) => {
-            reject(error);
-          };
-          
-          document.head.appendChild(script);
-        });
+            reject(new Error("Failed to load OneSignal SDK"))
+          }
+
+          document.head.appendChild(script)
+        })
 
         const OneSignalInstance = await new Promise<any>((resolve) => {
           if (window.OneSignal) {
-            resolve(window.OneSignal);
+            resolve(window.OneSignal)
           } else {
             window.OneSignalDeferred.push((OneSignal: any) => {
-              resolve(OneSignal);
-            });
+              resolve(OneSignal)
+            })
           }
-        });
+        })
 
-        // Initialize only once
-  
+        // Determine the correct base path for GitHub Pages
+        const isGitHubPages = window.location.hostname.includes("github.io")
+        const basePath = isGitHubPages ? window.location.pathname.split("/")[1] : ""
+        const fullPath = basePath ? `/${basePath}/` : "/"
 
-// Initialize only once
-
+        // Initialize OneSignal with correct paths
         await OneSignalInstance.init({
-  appId: ONE_SIGNAL_APP_ID,
-  allowLocalhostAsSecureOrigin: true,
-  notifyButton: {
-    enable: false
-  },
-  // Explicitly set the path for the service worker files
-  path: '/naderos/', 
-  serviceWorkerParam: {
-    scope: '/naderos/',
-  },
-  // Ensure these paths are relative to the 'path' option above
-  serviceWorkerPath: 'OneSignalSDKWorker.js',
-  serviceWorkerUpdaterPath: 'OneSignalSDKUpdaterWorker.js'
-});
-        // Mark as initialized globally
-        window.OneSignalInitialized = true;
+          appId: ONE_SIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          notifyButton: {
+            enable: false,
+          },
+          // Set correct paths for GitHub Pages
+          ...(isGitHubPages && {
+            path: fullPath,
+            serviceWorkerParam: {
+              scope: fullPath,
+            },
+          }),
+          // Use default service worker names (OneSignal will handle the paths)
+          serviceWorkerPath: "OneSignalSDKWorker.js",
+          serviceWorkerUpdaterPath: "OneSignalSDKUpdaterWorker.js",
+        })
 
-        const isPushSupported = OneSignalInstance.Notifications.isPushSupported();
+        window.OneSignalInitialized = true
+
+        const isPushSupported = OneSignalInstance.Notifications.isPushSupported()
 
         if (isPushSupported) {
-          const permission = OneSignalInstance.Notifications.permission;
-          const isOptedIn = await OneSignalInstance.User.PushSubscription.optedIn;
+          const permission = OneSignalInstance.Notifications.permission
+          const isOptedIn = await OneSignalInstance.User.PushSubscription.optedIn
 
           if (isOptedIn) {
-            const subscriptionId = await OneSignalInstance.User.PushSubscription.id;
-            
+            const subscriptionId = await OneSignalInstance.User.PushSubscription.id
+
             setOneSignalState({
               isLoading: false,
               isInitialized: true,
               isSubscribed: true,
               permission,
               userId: subscriptionId,
-              error: null
-            });
+              error: null,
+            })
 
             if (selectedCategory) {
-              await OneSignalInstance.User.addTag('category', selectedCategory);
+              await OneSignalInstance.User.addTag("category", selectedCategory)
             }
           } else {
             setOneSignalState({
@@ -175,93 +201,84 @@ export default function NotificationApp() {
               isSubscribed: false,
               permission,
               userId: null,
-              error: null
-            });
+              error: null,
+            })
           }
 
-          OneSignalInstance.User.PushSubscription.addEventListener('change', async (event: any) => {
-            const isNowOptedIn = event.current.optedIn;
-            const newId = event.current.id;
-            
-            setOneSignalState(prev => ({
+          // Set up event listeners
+          OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
+            const isNowOptedIn = event.current.optedIn
+            const newId = event.current.id
+
+            setOneSignalState((prev) => ({
               ...prev,
               isSubscribed: isNowOptedIn,
-              userId: isNowOptedIn ? newId : null
-            }));
+              userId: isNowOptedIn ? newId : null,
+            }))
 
             if (isNowOptedIn && selectedCategory) {
-              await OneSignalInstance.User.addTag('category', selectedCategory);
+              await OneSignalInstance.User.addTag("category", selectedCategory)
             }
-          });
+          })
 
-          OneSignalInstance.Notifications.addEventListener('permissionChange', (permission: string) => {
-            setOneSignalState(prev => ({ ...prev, permission }));
-          });
+          OneSignalInstance.Notifications.addEventListener("permissionChange", (permission: string) => {
+            setOneSignalState((prev) => ({ ...prev, permission }))
+          })
         } else {
-          throw new Error('Push notifications are not supported in this browser');
+          throw new Error("Push notifications are not supported in this browser")
         }
-
       } catch (error: any) {
-        console.error('OneSignal initialization error:', error);
+        console.error("OneSignal initialization error:", error)
         setOneSignalState({
           isLoading: false,
           isInitialized: true,
           isSubscribed: false,
-          permission: 'default',
+          permission: "default",
           userId: null,
-          error: error.message
-        });
+          error: error.message,
+        })
       }
-    };
+    }
 
-    initializeOneSignal();
-  }, []); // Remove selectedCategory from dependencies
+    initializeOneSignal()
+  }, [])
 
-  // Handle category updates separately
   useEffect(() => {
     if (oneSignalState.isSubscribed && selectedCategory && window.OneSignal) {
-      window.OneSignal.User.addTag('category', selectedCategory).catch((error: any) => {
-        console.error('Error updating tag:', error);
-      });
+      window.OneSignal.User.addTag("category", selectedCategory).catch((error: any) => {
+        console.error("Error updating tag:", error)
+      })
     }
-  }, [selectedCategory, oneSignalState.isSubscribed]);
+  }, [selectedCategory, oneSignalState.isSubscribed])
+
+  const showCustomNotification = (message: string) => {
+    setNotificationMessage(message)
+    setShowNotification(true)
+    setTimeout(() => setShowNotification(false), 5000)
+  }
 
   const handleSubscribe = async () => {
     try {
-      if (!window.OneSignal) {
-        return;
+      if (!window.OneSignal || !selectedCategory) {
+        return
       }
 
-      if (!selectedCategory) {
-        return;
-      }
-
-      await window.OneSignal.Slidedown.promptPush();
-      
+      await window.OneSignal.Slidedown.promptPush()
     } catch (error) {
-      console.error('Subscribe error:', error);
+      console.error("Subscribe error:", error)
     }
-  };
+  }
 
   const handleCategoryChange = async (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    localStorage.setItem('selectedNotificationCategory', categoryId);
+    setSelectedCategory(categoryId)
+    localStorage.setItem("selectedNotificationCategory", categoryId)
 
-    const category = categories.find(cat => cat.id === categoryId);
-    
+    const category = categories.find((cat) => cat.id === categoryId)
+
     if (category) {
-      addNotification({
-        title: `Subscribed to ${category.name}`,
-        subtitle: `Thank you for subscribing to ${category.name}`,
-        message: category.txt,
-        theme: 'darkblue',
-        native: true,
-        duration: 5000,
-        vibrate: 1,
-        onClick: () => console.log('Notification clicked')
-      });
+      showCustomNotification(`Subscribed to ${category.name}: ${category.txt}`)
     }
-  };
+  }
 
   const renderStatus = () => {
     if (oneSignalState.isLoading) {
@@ -270,7 +287,7 @@ export default function NotificationApp() {
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>Initializing Notification Service...</span>
         </div>
-      );
+      )
     }
 
     if (oneSignalState.error) {
@@ -278,12 +295,22 @@ export default function NotificationApp() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{oneSignalState.error}</AlertDescription>
+          <AlertDescription>
+            {oneSignalState.error}
+            <div className="mt-2 text-sm">
+              <strong>Troubleshooting:</strong>
+              <ul className="list-disc ml-4 mt-1">
+                <li>Make sure you're accessing the site via HTTPS</li>
+                <li>Check if service worker files are accessible</li>
+                <li>Try refreshing the page</li>
+              </ul>
+            </div>
+          </AlertDescription>
         </Alert>
-      );
+      )
     }
 
-    if (oneSignalState.permission === 'denied') {
+    if (oneSignalState.permission === "denied") {
       return (
         <Alert variant="destructive">
           <AlertTitle>Notifications Blocked</AlertTitle>
@@ -297,14 +324,14 @@ export default function NotificationApp() {
             </ol>
           </AlertDescription>
         </Alert>
-      );
+      )
     }
 
     if (!oneSignalState.isSubscribed) {
       return (
         <div className="space-y-4">
           <p className="text-center text-muted-foreground">
-            {selectedCategory 
+            {selectedCategory
               ? "Click below to enable notifications for your selected category"
               : "Please select a category first, then enable notifications"}
           </p>
@@ -318,7 +345,7 @@ export default function NotificationApp() {
             Enable Notifications
           </Button>
         </div>
-      );
+      )
     }
 
     return (
@@ -326,59 +353,55 @@ export default function NotificationApp() {
         <CheckCircle className="h-4 w-4 text-green-600" />
         <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
         <AlertDescription className="text-muted-foreground">
-          <div>Your User ID: {oneSignalState.userId || 'Loading...'}</div>
-          <div>Category: {selectedCategory || 'None selected'}</div>
+          <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
+          <div>Category: {selectedCategory || "None selected"}</div>
         </AlertDescription>
       </Alert>
-    );
-  };
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl mx-auto space-y-8">
+        {/* Custom Notification */}
+        {showNotification && (
+          <div className="fixed top-4 right-4 z-50 max-w-sm">
+            <Alert className="border-blue-600 bg-blue-50 dark:bg-blue-950/20">
+              <Bell className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-600">Notification</AlertTitle>
+              <AlertDescription className="text-sm">{notificationMessage}</AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
-          <p className="text-muted-foreground mt-2">
-            Select a category to receive tailored push notifications.
-          </p>
+          <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Notification Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderStatus()}
-          </CardContent>
+          <CardContent>{renderStatus()}</CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Choose Your Category</CardTitle>
-            <CardDescription>
-              Select the type of notifications you&apos;d like to receive
-            </CardDescription>
+            <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
           </CardHeader>
           <CardContent>
-            <RadioGroup
-              value={selectedCategory || ''}
-              onValueChange={handleCategoryChange}
-              className="space-y-4"
-            >
+            <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
               {categories.map((category) => (
                 <div
                   key={category.id}
                   className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
                 >
                   <RadioGroupItem value={category.id} id={category.id} />
-                  <Label
-                    htmlFor={category.id}
-                    className="flex-1 cursor-pointer space-y-1"
-                  >
+                  <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
                     <div className="font-semibold">{category.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {category.description}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{category.description}</div>
                   </Label>
                 </div>
               ))}
@@ -391,5 +414,5 @@ export default function NotificationApp() {
         </footer>
       </div>
     </div>
-  );
+  )
 }
