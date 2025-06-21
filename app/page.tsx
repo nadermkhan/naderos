@@ -440,7 +440,7 @@ export default function NotificationApp() {
         </Card>
 
         <footer className="text-center text-sm text-muted-foreground">
-          <p>Nader Mahbub Khan</p>
+          <p>Nader Mahbub Khan</p> 
         </footer>
       </div>
     </div>
