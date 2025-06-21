@@ -6,12 +6,18 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  
+  // Configure for GitHub Pages subdirectory deployment
+  basePath: '/naderos',
+  assetPrefix: '/naderos/',
+  
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
+  
   // Configure headers for service workers
   async headers() {
     return [

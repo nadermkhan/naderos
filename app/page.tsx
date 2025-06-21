@@ -149,8 +149,9 @@ export default function NotificationApp() {
 
         // Determine the correct base path for GitHub Pages
         const isGitHubPages = window.location.hostname.includes("github.io")
-        const basePath = isGitHubPages ? window.location.pathname.split("/")[1] : ""
-        const fullPath = basePath ? `/${basePath}/` : "/"
+        const repoName = "naderos" // Your repository name
+        const basePath = isGitHubPages ? `/${repoName}` : ""
+        const fullPath = isGitHubPages ? `/${repoName}/` : "/"
 
         // Initialize OneSignal with correct paths
         await OneSignalInstance.init({
@@ -410,7 +411,7 @@ export default function NotificationApp() {
         </Card>
 
         <footer className="text-center text-sm text-muted-foreground">
-          <p>Powered by React & OneSignal</p>
+          <p>Nader Mahbub Khan</p>
         </footer>
       </div>
     </div>
