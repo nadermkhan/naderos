@@ -128,23 +128,20 @@ export default function NotificationApp() {
   
 
 // Initialize only once
-await OneSignalInstance.init({
-  appId: ONE_SIGNAL_APP_ID,
-  allowLocalhostAsSecureOrigin: true,
-  notifyButton: {
-    enable: false
-  },
-  // Use the path option to specify the full URL
-  path: '/naderos/',
-  serviceWorkerParam: {
-    scope: '/naderos/',
-    path: '/naderos/OneSignalSDKWorker.js'
-  },
-  serviceWorkerUpdaterParam: {
-    scope: '/naderos/',
-    path: '/naderos/OneSignalSDKUpdaterWorker.js'
-  }
-});
+
+        await OneSignalInstance.init({
+          appId: ONE_SIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          notifyButton: {
+            enable: false
+          },
+          // Correct service worker parameters for subdirectory deployment
+          serviceWorkerParam: {
+            scope: '/naderos/',
+          },
+          serviceWorkerPath: 'naderos/OneSignalSDKWorker.js',
+          serviceWorkerUpdaterPath: 'naderos/OneSignalSDKUpdaterWorker.js',
+        });
         // Mark as initialized globally
         window.OneSignalInitialized = true;
 
