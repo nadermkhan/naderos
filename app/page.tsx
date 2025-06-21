@@ -128,11 +128,13 @@ export default function NotificationApp() {
               await OneSignalInstance.User.addTag('category', selectedCategory);
             }
           } else {
+            // FIX: Added userId: null here
             setOneSignalState({
               isLoading: false,
               isInitialized: true,
               isSubscribed: false,
               permission,
+              userId: null,
               error: null
             });
           }
@@ -343,7 +345,9 @@ export default function NotificationApp() {
           </CardContent>
         </Card>
 
-    
+        <footer className="text-center text-sm text-muted-foreground">
+          <p>Powered by React & OneSignal</p>
+        </footer>
       </div>
     </div>
   );
