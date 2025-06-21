@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import addNotification from 'react-push-notification';
 
-const ONE_SIGNAL_APP_ID = "3b3ec461-9b51-4784-aac8-cf5be3e09c61";
+const ONE_SIGNAL_APP_ID = "b928d583-4f85-40ca-b2d6-fd219fd7e2ef";
 
 const categories = [
   { id: 'weekly_report', name: 'Weekly Report', description: 'Latest news in technology and innovation.',txt:'hr Wochenrückblick aus dem Rathaus! Jeden Freitag erhalten Sie unseren Wochenbericht kompakt zusammengefasst, was die Verwaltung diese Woche im Ort bewegt hat. Von wichtigen Entscheidungen über Projekte,Veranstaltungen oder interessante Fakten über die Gemeinde. Bleiben Sie mühelos auf dem Laufenden über alles, was in Laaber passiert ist.' },
@@ -34,6 +34,7 @@ declare global {
   interface Window {
     OneSignal: any;
     OneSignalDeferred: any[];
+    OneSignalInitialized?: boolean;
   }
 }
 
@@ -46,8 +47,8 @@ export default function NotificationApp() {
     userId: null,
     error: null
   });
-  // Fix: Change from null to string | null
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const initializationRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('selectedNotificationCategory');
@@ -55,11 +56,36 @@ export default function NotificationApp() {
       setSelectedCategory(saved);
     }
 
-    let OneSignalInstance: any = null;
-
     const initializeOneSignal = async () => {
+      // Prevent multiple initializations
+      if (initializationRef.current || window.OneSignalInitialized) {
+        return;
+      }
+      initializationRef.current = true;
+
       try {
         if (typeof window === 'undefined') {
+          return;
+        }
+
+        // Check if OneSignal is already initialized
+        if (window.OneSignal && window.OneSignal.initialized) {
+          // OneSignal is already initialized, just update state
+          const isPushSupported = window.OneSignal.Notifications.isPushSupported();
+          if (isPushSupported) {
+            const permission = window.OneSignal.Notifications.permission;
+            const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn;
+            const subscriptionId = isOptedIn ? await window.OneSignal.User.PushSubscription.id : null;
+            
+            setOneSignalState({
+              isLoading: false,
+              isInitialized: true,
+              isSubscribed: isOptedIn,
+              permission,
+              userId: subscriptionId,
+              error: null
+            });
+          }
           return;
         }
 
@@ -88,7 +114,7 @@ export default function NotificationApp() {
           document.head.appendChild(script);
         });
 
-        OneSignalInstance = await new Promise((resolve) => {
+        const OneSignalInstance = await new Promise((resolve) => {
           if (window.OneSignal) {
             resolve(window.OneSignal);
           } else {
@@ -98,6 +124,7 @@ export default function NotificationApp() {
           }
         });
 
+        // Initialize only once
         await OneSignalInstance.init({
           appId: ONE_SIGNAL_APP_ID,
           allowLocalhostAsSecureOrigin: true,
@@ -105,6 +132,9 @@ export default function NotificationApp() {
             enable: false
           }
         });
+
+        // Mark as initialized globally
+        window.OneSignalInitialized = true;
 
         const isPushSupported = OneSignalInstance.Notifications.isPushSupported();
 
@@ -128,7 +158,6 @@ export default function NotificationApp() {
               await OneSignalInstance.User.addTag('category', selectedCategory);
             }
           } else {
-            // FIX: Added userId: null here
             setOneSignalState({
               isLoading: false,
               isInitialized: true,
@@ -175,7 +204,16 @@ export default function NotificationApp() {
     };
 
     initializeOneSignal();
-  }, [selectedCategory]);
+  }, []); // Remove selectedCategory from dependencies
+
+  // Handle category updates separately
+  useEffect(() => {
+    if (oneSignalState.isSubscribed && selectedCategory && window.OneSignal) {
+      window.OneSignal.User.addTag('category', selectedCategory).catch((error: any) => {
+        console.error('Error updating tag:', error);
+      });
+    }
+  }, [selectedCategory, oneSignalState.isSubscribed]);
 
   const handleSubscribe = async () => {
     try {
@@ -211,14 +249,6 @@ export default function NotificationApp() {
         vibrate: 1,
         onClick: () => console.log('Notification clicked')
       });
-    }
-
-    if (oneSignalState.isSubscribed && window.OneSignal) {
-      try {
-        await window.OneSignal.User.addTag('category', categoryId);
-      } catch (error) {
-        console.error('Error updating tag:', error);
-      }
     }
   };
 
