@@ -154,6 +154,8 @@ export default function NotificationApp() {
         const fullPath = isGitHubPages ? `/${repoName}/` : "/"
 
         // Initialize OneSignal with correct paths
+const baseUrl = window.location.origin + window.location.pathname.replace(/\/$/, '');
+
 await OneSignalInstance.init({
   appId: ONE_SIGNAL_APP_ID,
   allowLocalhostAsSecureOrigin: true,
@@ -161,13 +163,13 @@ await OneSignalInstance.init({
     enable: false
   },
   serviceWorkerParam: {
-    scope: '/naderos/',
+    scope: window.location.pathname,
     workerName: 'OneSignalSDKWorker.js',
     registrationOptions: {
-      scope: '/naderos/'
+      scope: window.location.pathname
     }
   },
-  path: '/naderos/'
+  path: window.location.pathname
 });
 
         window.OneSignalInitialized = true
