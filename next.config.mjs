@@ -36,6 +36,10 @@ const nextConfig = {
             key: 'Service-Worker-Allowed',
             value: '/',
           },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
         ],
       },
       {
@@ -52,6 +56,10 @@ const nextConfig = {
           {
             key: 'Service-Worker-Allowed',
             value: '/',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
           },
         ],
       },
