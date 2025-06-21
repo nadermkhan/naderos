@@ -147,21 +147,14 @@ export default function NotificationApp() {
           }
         })
 
-        // Determine the correct base path for GitHub Pages
-        const isGitHubPages = window.location.hostname.includes("github.io")
-        const repoName = "naderos" // Your repository name
-        const basePath = isGitHubPages ? `/${repoName}` : ""
-        const fullPath = isGitHubPages ? `/${repoName}/` : "/"
-
-        // Initialize OneSignal with correct paths
-
-await OneSignalInstance.init({
-  appId: ONE_SIGNAL_APP_ID,
-  allowLocalhostAsSecureOrigin: true,
-  notifyButton: {
-    enable: false
-  }
-});
+        // Initialize OneSignal
+        await OneSignalInstance.init({
+          appId: ONE_SIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          notifyButton: {
+            enable: false
+          }
+        });
 
         window.OneSignalInitialized = true
 
@@ -183,8 +176,9 @@ await OneSignalInstance.init({
               error: null,
             })
 
+            // Use addTags (plural) instead of addTag
             if (selectedCategory) {
-              await OneSignalInstance.User.addTag("category", selectedCategory)
+              await OneSignalInstance.User.addTags({ category: selectedCategory })
             }
           } else {
             setOneSignalState({
@@ -209,7 +203,7 @@ await OneSignalInstance.init({
             }))
 
             if (isNowOptedIn && selectedCategory) {
-              await OneSignalInstance.User.addTag("category", selectedCategory)
+              await OneSignalInstance.User.addTags({ category: selectedCategory })
             }
           })
 
@@ -237,8 +231,9 @@ await OneSignalInstance.init({
 
   useEffect(() => {
     if (oneSignalState.isSubscribed && selectedCategory && window.OneSignal) {
-      window.OneSignal.User.addTag("category", selectedCategory).catch((error: any) => {
-        console.error("Error updating tag:", error)
+      // Use addTags (plural) instead of addTag
+      window.OneSignal.User.addTags({ category: selectedCategory }).catch((error: any) => {
+        console.error("Error updating tags:", error)
       })
     }
   }, [selectedCategory, oneSignalState.isSubscribed])
@@ -405,6 +400,6 @@ await OneSignalInstance.init({
           <p>Nader Mahbub Khan</p>
         </footer>
       </div>
-    </div>
+        </div>
   )
 }
