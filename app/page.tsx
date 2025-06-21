@@ -127,12 +127,15 @@ export default function NotificationApp() {
         // Initialize only once
   
 
+// Initialize only once
 await OneSignalInstance.init({
   appId: ONE_SIGNAL_APP_ID,
   allowLocalhostAsSecureOrigin: true,
   notifyButton: {
     enable: false
   },
+  // Use the path option to specify the full URL
+  path: '/naderos/',
   serviceWorkerParam: {
     scope: '/naderos/',
     path: '/naderos/OneSignalSDKWorker.js'
