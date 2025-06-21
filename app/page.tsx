@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 
-const ONE_SIGNAL_APP_ID = "7b2a710b-6926-4865-b66b-6f6abf85b0ee"
+const ONE_SIGNAL_APP_ID = "a405e5ea-deec-490e-bdc3-38b65b4ec31c"
 
 const categories = [
   {
@@ -154,22 +154,13 @@ export default function NotificationApp() {
         const fullPath = isGitHubPages ? `/${repoName}/` : "/"
 
         // Initialize OneSignal with correct paths
-const baseUrl = window.location.origin + window.location.pathname.replace(/\/$/, '');
 
 await OneSignalInstance.init({
   appId: ONE_SIGNAL_APP_ID,
   allowLocalhostAsSecureOrigin: true,
   notifyButton: {
     enable: false
-  },
-  serviceWorkerParam: {
-    scope: window.location.pathname,
-    workerName: 'OneSignalSDKWorker.js',
-    registrationOptions: {
-      scope: window.location.pathname
-    }
-  },
-  path: window.location.pathname
+  }
 });
 
         window.OneSignalInitialized = true
