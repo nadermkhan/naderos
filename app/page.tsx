@@ -84,20 +84,18 @@ export default function NotificationApp() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const initializationRef = useRef(false)
 
-  // Fetch remote config - Fixed CORS issue
+  // Fetch remote config
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         setConfigLoading(true)
         
-        // Use cache busting in URL only, no custom headers for CDN
         const timestamp = Date.now()
         const random = Math.random().toString(36).substring(7)
         const urlWithParams = `${CONFIG_URL}?t=${timestamp}&r=${random}`
         
         const response = await fetch(urlWithParams, {
           method: 'GET',
-          // Don't send custom headers that might cause CORS issues
           cache: 'no-cache',
           mode: 'cors',
         })
@@ -122,20 +120,15 @@ export default function NotificationApp() {
       }
     }
 
-    // Initial fetch
     fetchConfig()
-    
-    // Refresh config every 30 seconds
     const interval = setInterval(fetchConfig, 30000)
     
-    // Check on visibility change
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         fetchConfig()
       }
     }
     
-    // Check on focus
     const handleFocus = () => {
       fetchConfig()
     }
@@ -158,7 +151,7 @@ export default function NotificationApp() {
     }
   }, [])
 
-  // Initialize OneSignal with proper user detection
+  // Initialize OneSignal
   useEffect(() => {
     if (!appConfig?.appEnabled || configLoading) {
       return
@@ -174,6 +167,8 @@ export default function NotificationApp() {
               const permission = await window.OneSignal.Notifications.permission
               const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn
               const subscriptionId = await window.OneSignal.User.PushSubscription.id
+              
+              // Get user ID using the correct method
               const onesignalId = await window.OneSignal.User.getOnesignalId()
 
               console.log('OneSignal State:', {
@@ -252,7 +247,7 @@ export default function NotificationApp() {
           }
         })
 
-        // Initialize with enhanced configuration
+        // Initialize OneSignal
         await OneSignalInstance.init({
           appId: ONE_SIGNAL_APP_ID,
           allowLocalhostAsSecureOrigin: true,
@@ -285,6 +280,8 @@ export default function NotificationApp() {
           const permission = await OneSignalInstance.Notifications.permission
           const isOptedIn = await OneSignalInstance.User.PushSubscription.optedIn
           const subscriptionId = await OneSignalInstance.User.PushSubscription.id
+          
+          // Get user ID - this is the correct way
           const onesignalId = await OneSignalInstance.User.getOnesignalId()
 
           console.log('OneSignal initialized with:', {
@@ -430,11 +427,11 @@ export default function NotificationApp() {
     const category = categories.find((cat) => cat.id === categoryId)
 
     if (category) {
-           // Use react-push-notification for category change
-      addNotification({
-        title: 'Category Selected',
+      // Use react-push-notification for category change
+           addNotification({
+        title: `You've selected ${category.name} notifications`,
         subtitle: category.name,
-        message: `You've selected ${category.name} notifications`,
+  message: `${category.txt}`,
         theme: 'darkblue',
         native: true,
         duration: 5000,
