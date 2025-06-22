@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, CheckCircle, Loader2, AlertCircle } from "lucide-react"
+import { Bell, CheckCircle, Loader2, AlertCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 
 const ONE_SIGNAL_APP_ID = "a405e5ea-deec-490e-bdc3-38b65b4ec31c"
+// Replace with your actual config URL
+const CONFIG_URL = "https://raw.githubusercontent.com/nadermkhan/cfgl/main/config.json"
 
 const categories = [
   {
@@ -52,6 +54,12 @@ interface OneSignalState {
   error: string | null
 }
 
+interface AppConfig {
+  appEnabled: boolean
+  maintenanceMessage?: string
+  lastUpdated?: string
+}
+
 declare global {
   interface Window {
     OneSignal: any
@@ -61,6 +69,9 @@ declare global {
 }
 
 export default function NotificationApp() {
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
+  const [configLoading, setConfigLoading] = useState(true)
+  const [configError, setConfigError] = useState<string | null>(null)
   const [oneSignalState, setOneSignalState] = useState<OneSignalState>({
     isLoading: true,
     isInitialized: false,
@@ -74,6 +85,43 @@ export default function NotificationApp() {
   const [notificationMessage, setNotificationMessage] = useState("")
   const initializationRef = useRef(false)
 
+  // Fetch remote config
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        setConfigLoading(true)
+        const response = await fetch(CONFIG_URL, {
+          cache: 'no-cache', // Ensure we get fresh data
+          headers: {
+            'Accept': 'application/json',
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch config: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        setAppConfig(data)
+        setConfigError(null)
+      } catch (error) {
+        console.error("Error fetching config:", error)
+        setConfigError("Failed to load app configuration")
+        // Default to enabled if config fetch fails
+        setAppConfig({ appEnabled: true })
+      } finally {
+        setConfigLoading(false)
+      }
+    }
+
+    fetchConfig()
+    
+    // Optionally refresh config periodically
+    const interval = setInterval(fetchConfig, 60000) // Check every minute
+    
+    return () => clearInterval(interval)
+  }, [])
+
   // Load saved category from localStorage on component mount
   useEffect(() => {
     const saved = localStorage.getItem("selectedNotificationCategory")
@@ -83,6 +131,11 @@ export default function NotificationApp() {
   }, [])
 
   useEffect(() => {
+    // Only initialize OneSignal if app is enabled
+    if (!appConfig?.appEnabled || configLoading) {
+      return
+    }
+
     const initializeOneSignal = async () => {
       if (initializationRef.current || window.OneSignalInitialized) {
         return
@@ -258,7 +311,7 @@ export default function NotificationApp() {
     }
 
     initializeOneSignal()
-  }, [])
+  }, [appConfig, configLoading])
 
   // Update localStorage whenever subscription state or category changes
   useEffect(() => {
@@ -310,6 +363,44 @@ export default function NotificationApp() {
     }
   }
 
+  // Show loading state while checking config
+  if (configLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex items-center space-x-2 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading configuration...</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Show maintenance message if app is disabled
+  if (appConfig && !appConfig.appEnabled) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <XCircle className="h-6 w-6 text-destructive" />
+              <CardTitle>Service Unavailable</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              {appConfig.maintenanceMessage || "The notification service is temporarily unavailable. Please try again later."}
+            </p>
+            {appConfig.lastUpdated && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Last updated: {new Date(appConfig.lastUpdated).toLocaleString()}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   const renderStatus = () => {
     if (oneSignalState.isLoading) {
       return (
@@ -323,126 +414,110 @@ export default function NotificationApp() {
     if (oneSignalState.error) {
       return (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {oneSignalState.error}
-            <div className="mt-2 text-sm">
-              <strong>Troubleshooting:</strong>
-              <ul className="list-disc ml-4 mt-1">
-                <li>Make sure you're accessing the site via HTTPS</li>
-                <li>Check if service worker files are accessible</li>
-                <li>Try refreshing the page</li>
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )
-    }
+          <AlertCircle className="h-4 w-4" /> <AlertTitle>Error</AlertTitle> <AlertDescription> {oneSignalState.error} <div className="mt-2 text-sm"> <strong>Troubleshooting:</strong> <ul className="list-disc ml-4 mt-1"> <li>Make sure you're accessing the site via HTTPS</li> <li>Check if service worker files are accessible</li> <li>Try refreshing the page</li> </ul> </div> </AlertDescription> </Alert> ) }
 
-    if (oneSignalState.permission === "denied") {
-      return (
-        <Alert variant="destructive">
-          <AlertTitle>Notifications Blocked</AlertTitle>
-          <AlertDescription>
-            You have blocked notifications. Please enable them in your browser settings:
-            <ol className="mt-2 ml-4 list-decimal text-sm">
-              <li>Click the lock icon in your address bar</li>
-              <li>Find &quot;Notifications&quot; in the permissions</li>
-              <li>Change it to &quot;Allow&quot;</li>
-              <li>Refresh this page</li>
-            </ol>
-          </AlertDescription>
-        </Alert>
-      )
-    }
-
-    if (!oneSignalState.isSubscribed) {
-      return (
-        <div className="space-y-4">
-          <p className="text-center text-muted-foreground">
-            {selectedCategory
-              ? "Click below to enable notifications for your selected category"
-              : "Please select a category first, then enable notifications"}
-          </p>
-          <Button
-            onClick={handleSubscribe}
-            disabled={!selectedCategory || !oneSignalState.isInitialized}
-            className="w-full"
-            size="lg"
-          >
-            <Bell className="mr-2 h-4 w-4" />
-            Enable Notifications
-          </Button>
-        </div>
-      )
-    }
-
-    return (
-      <Alert className="border-green-600 bg-green-50 dark:bg-green-950/20">
-        <CheckCircle className="h-4 w-4 text-green-600" />
-        <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
-        <AlertDescription className="text-muted-foreground">
-          <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
-          <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
+if (oneSignalState.permission === "denied") {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl mx-auto space-y-8">
-        {/* Custom Notification */}
-        {showNotification && (
-          <div className="fixed top-4 right-4 z-50 max-w-sm">
-            <Alert className="border-blue-600 bg-blue-50 dark:bg-blue-950/20">
-              <Bell className="h-4 w-4 text-blue-600" />
-              <AlertTitle className="text-blue-600">Notification</AlertTitle>
-              <AlertDescription className="text-sm">{notificationMessage}</AlertDescription>
-            </Alert>
-          </div>
-        )}
+    <Alert variant="destructive">
+      <AlertTitle>Notifications Blocked</AlertTitle>
+      <AlertDescription>
+        You have blocked notifications. Please enable them in your browser settings:
+        <ol className="mt-2 ml-4 list-decimal text-sm">
+          <li>Click the lock icon in your address bar</li>
+          <li>Find &quot;Notifications&quot; in the permissions</li>
+          <li>Change it to &quot;Allow&quot;</li>
+          <li>Refresh this page</li>
+        </ol>
+      </AlertDescription>
+    </Alert>
+  )
+}
 
-        <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
-          <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notification Status</CardTitle>
-                    </CardHeader>
-          <CardContent>{renderStatus()}</CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Choose Your Category</CardTitle>
-            <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
-              {categories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
-                >
-                  <RadioGroupItem value={category.id} id={category.id} />
-                  <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
-                    <div className="font-semibold">{category.name}</div>
-                    <div className="text-sm text-muted-foreground">{category.description}</div>
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </CardContent>
-        </Card>
-
-        <footer className="text-center text-sm text-muted-foreground">
-          <p>Nader Mahbub Khan</p> 
-        </footer>
-      </div>
+if (!oneSignalState.isSubscribed) {
+  return (
+    <div className="space-y-4">
+      <p className="text-center text-muted-foreground">
+        {selectedCategory
+          ? "Click below to enable notifications for your selected category"
+          : "Please select a category first, then enable notifications"}
+      </p>
+      <Button
+        onClick={handleSubscribe}
+        disabled={!selectedCategory || !oneSignalState.isInitialized}
+        className="w-full"
+        size="lg"
+      >
+        <Bell className="mr-2 h-4 w-4" />
+        Enable Notifications
+      </Button>
     </div>
   )
 }
+
+return (
+  <Alert className="border-green-600 bg-green-50 dark:bg-green-950/20">
+    <CheckCircle className="h-4 w-4 text-green-600" />
+    <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
+    <AlertDescription className="text-muted-foreground">
+      <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
+      <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
+    </AlertDescription>
+  </Alert>
+)
+}
+
+return ( <div className="min-h-screen bg-background flex items-center justify-center p-4"> <div className="w-full max-w-2xl mx-auto space-y-8"> {/* Custom Notification */} {showNotification && ( <div className="fixed top-4 right-4 z-50 max-w-sm"> <Alert className="border-blue-600 bg-blue-50 dark:bg-blue-950/20"> <Bell className="h-4 w-4 text-blue-600" /> <AlertTitle className="text-blue-600">Notification</AlertTitle> <AlertDescription className="text-sm">{notificationMessage}</AlertDescription> </Alert> </div> )}
+
+    <div className="text-center">
+      <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
+      <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
+    </div>
+
+    {/* Config Error Alert */}
+    {configError && (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Configuration Warning</AlertTitle>
+        <AlertDescription>
+          {configError}. The app is running with default settings.
+        </AlertDescription>
+      </Alert>
+    )}
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Notification Status</CardTitle>
+      </CardHeader>
+      <CardContent>{renderStatus()}</CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Choose Your Category</CardTitle>
+        <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
+          {categories.map((category) => (
+            <div
+              key={category.id}
+              className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
+            >
+              <RadioGroupItem value={category.id} id={category.id} />
+              <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
+                <div className="font-semibold">{category.name}</div>
+                <div className="text-sm text-muted-foreground">{category.description}</div>
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </CardContent>
+    </Card>
+
+    <footer className="text-center text-sm text-muted-foreground">
+      <p>Nader Mahbub Khan</p> 
+    </footer>
+  </div>
+</div>
+) }
+
