@@ -72,6 +72,7 @@ export default function NotificationApp() {
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
   const [configLoading, setConfigLoading] = useState(true)
   const [configError, setConfigError] = useState<string | null>(null)
+  const [lastConfigCheck, setLastConfigCheck] = useState<Date | null>(null)
   const [oneSignalState, setOneSignalState] = useState<OneSignalState>({
     isLoading: true,
     isInitialized: false,
@@ -85,16 +86,28 @@ export default function NotificationApp() {
   const [notificationMessage, setNotificationMessage] = useState("")
   const initializationRef = useRef(false)
 
-  // Fetch remote config
+  // Fetch remote config with cache busting
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         setConfigLoading(true)
-        const response = await fetch(CONFIG_URL, {
-          cache: 'no-cache', // Ensure we get fresh data
+        
+        // Add timestamp to URL to prevent caching
+        const timestamp = new Date().getTime()
+        const urlWithTimestamp = `${CONFIG_URL}?t=${timestamp}&nocache=${Math.random()}`
+        
+        const response = await fetch(urlWithTimestamp, {
+          method: 'GET',
+          cache: 'no-store', // Most aggressive no-cache setting
           headers: {
             'Accept': 'application/json',
-          }
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+          // For some browsers, we need to be extra explicit
+          mode: 'cors',
+          credentials: 'omit',
         })
         
         if (!response.ok) {
@@ -104,6 +117,10 @@ export default function NotificationApp() {
         const data = await response.json()
         setAppConfig(data)
         setConfigError(null)
+        setLastConfigCheck(new Date())
+        
+        // Log for debugging
+        console.log('Config fetched at:', new Date().toISOString(), data)
       } catch (error) {
         console.error("Error fetching config:", error)
         setConfigError("Failed to load app configuration")
@@ -114,12 +131,25 @@ export default function NotificationApp() {
       }
     }
 
+    // Initial fetch
     fetchConfig()
     
-    // Optionally refresh config periodically
-    const interval = setInterval(fetchConfig, 60000) // Check every minute
+    // Refresh config periodically with shorter interval
+    const interval = setInterval(fetchConfig, 30000) // Check every 30 seconds
     
-    return () => clearInterval(interval)
+    // Also check on visibility change (when user returns to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchConfig()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   // Load saved category from localStorage on component mount
@@ -391,30 +421,29 @@ export default function NotificationApp() {
               {appConfig.maintenanceMessage || "The notification service is temporarily unavailable. Please try again later."}
             </p>
             {appConfig.lastUpdated && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Last updated: {new Date(appConfig.lastUpdated).toLocaleString()}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+              <p className="text-sm text-muted-foreground mt-4"> Last updated: {new Date(appConfig.lastUpdated).toLocaleString()} </p> )} {lastConfigCheck && ( <p className="text-xs text-muted-foreground mt-2"> Config checked: {lastConfigCheck.toLocaleTimeString()} </p> )} </CardContent> </Card> </div> ) }
 
-  const renderStatus = () => {
-    if (oneSignalState.isLoading) {
-      return (
-        <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Initializing Notification Service...</span>
+const renderStatus = () => { if (oneSignalState.isLoading) { return ( <div className="flex items-center justify-center space-x-2 text-muted-foreground"> <Loader2 className="h-4 w-4 animate-spin" /> <span>Initializing Notification Service...</span> </div> ) }
+
+if (oneSignalState.error) {
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>
+        {oneSignalState.error}
+        <div className="mt-2 text-sm">
+          <strong>Troubleshooting:</strong>
+          <ul className="list-disc ml-4 mt-1">
+            <li>Make sure you're accessing the site via HTTPS</li>
+            <li>Check if service worker files are accessible</li>
+            <li>Try refreshing the page</li>
+          </ul>
         </div>
-      )
-    }
-
-    if (oneSignalState.error) {
-      return (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" /> <AlertTitle>Error</AlertTitle> <AlertDescription> {oneSignalState.error} <div className="mt-2 text-sm"> <strong>Troubleshooting:</strong> <ul className="list-disc ml-4 mt-1"> <li>Make sure you're accessing the site via HTTPS</li> <li>Check if service worker files are accessible</li> <li>Try refreshing the page</li> </ul> </div> </AlertDescription> </Alert> ) }
+      </AlertDescription>
+    </Alert>
+  )
+}
 
 if (oneSignalState.permission === "denied") {
   return (
@@ -487,6 +516,11 @@ return ( <div className="min-h-screen bg-background flex items-center justify-ce
     <Card>
       <CardHeader>
         <CardTitle>Notification Status</CardTitle>
+        {lastConfigCheck && (
+          <CardDescription className="text-xs">
+            Last config check: {lastConfigCheck.toLocaleTimeString()}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>{renderStatus()}</CardContent>
     </Card>
@@ -518,6 +552,4 @@ return ( <div className="min-h-screen bg-background flex items-center justify-ce
       <p>Nader Mahbub Khan</p> 
     </footer>
   </div>
-</div>
-) }
-
+</div>)}
