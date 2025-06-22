@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Bell, CheckCircle, Loader2, AlertCircle, XCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
 import addNotification from 'react-push-notification'
 
 const ONE_SIGNAL_APP_ID = "a405e5ea-deec-490e-bdc3-38b65b4ec31c"
@@ -45,35 +40,12 @@ const categories = [
   },
 ]
 
-interface OneSignalState {
-  isLoading: boolean
-  isInitialized: boolean
-  isSubscribed: boolean
-  permission: string
-  userId: string | null
-  error: string | null
-}
-
-interface AppConfig {
-  appEnabled: boolean
-  maintenanceMessage?: string
-  lastUpdated?: string
-}
-
-declare global {
-  interface Window {
-    OneSignal: any
-    OneSignalDeferred: any[]
-    OneSignalInitialized?: boolean
-  }
-}
-
 export default function NotificationApp() {
-  const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
+  const [appConfig, setAppConfig] = useState(null)
   const [configLoading, setConfigLoading] = useState(true)
-  const [configError, setConfigError] = useState<string | null>(null)
-  const [lastConfigCheck, setLastConfigCheck] = useState<Date | null>(null)
-  const [oneSignalState, setOneSignalState] = useState<OneSignalState>({
+  const [configError, setConfigError] = useState(null)
+  const [lastConfigCheck, setLastConfigCheck] = useState(null)
+  const [oneSignalState, setOneSignalState] = useState({
     isLoading: true,
     isInitialized: false,
     isSubscribed: false,
@@ -81,7 +53,7 @@ export default function NotificationApp() {
     userId: null,
     error: null,
   })
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState(null)
   const initializationRef = useRef(false)
 
   // Fetch remote config
@@ -211,7 +183,7 @@ export default function NotificationApp() {
         }
 
         // Load OneSignal SDK
-        await new Promise<void>((resolve, reject) => {
+        await new Promise((resolve, reject) => {
           if (window.OneSignal) {
             resolve()
             return
@@ -237,11 +209,11 @@ export default function NotificationApp() {
           document.head.appendChild(script)
         })
 
-        const OneSignalInstance = await new Promise<any>((resolve) => {
+        const OneSignalInstance = await new Promise((resolve) => {
           if (window.OneSignal) {
             resolve(window.OneSignal)
           } else {
-            window.OneSignalDeferred.push((OneSignal: any) => {
+            window.OneSignalDeferred.push((OneSignal) => {
               resolve(OneSignal)
             })
           }
@@ -317,7 +289,7 @@ export default function NotificationApp() {
           }
 
           // Event listeners
-          OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
+          OneSignalInstance.User.PushSubscription.addEventListener("change", async (event) => {
             const isNowOptedIn = event.current.optedIn
             const newOnesignalId = await OneSignalInstance.User.onesignalId
 
@@ -351,13 +323,13 @@ export default function NotificationApp() {
             }
           })
 
-          OneSignalInstance.Notifications.addEventListener("permissionChange", (permission: string) => {
+          OneSignalInstance.Notifications.addEventListener("permissionChange", (permission) => {
             setOneSignalState((prev) => ({ ...prev, permission }))
           })
         } else {
           throw new Error("Push notifications are not supported in this browser")
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("OneSignal initialization error:", error)
         setOneSignalState({
           isLoading: false,
@@ -420,7 +392,7 @@ export default function NotificationApp() {
     }
   }
 
-  const handleCategoryChange = async (categoryId: string) => {
+  const handleCategoryChange = async (categoryId) => {
     setSelectedCategory(categoryId)
     localStorage.setItem("selectedNotificationCategory", categoryId)
 
@@ -428,10 +400,10 @@ export default function NotificationApp() {
 
     if (category) {
       // Use react-push-notification for category change
-           addNotification({
+      addNotification({
         title: `You've selected ${category.name} notifications`,
         subtitle: category.name,
-  message: `${category.txt}`,
+        message: `${category.txt}`,
         theme: 'darkblue',
         native: true,
         duration: 5000,
@@ -465,8 +437,8 @@ export default function NotificationApp() {
   // Show loading state while checking config
   if (configLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="flex items-center space-x-2 text-muted-foreground">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Loading configuration...</span>
         </div>
@@ -477,176 +449,146 @@ export default function NotificationApp() {
   // Show maintenance message if app is disabled
   if (appConfig && !appConfig.appEnabled) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex items-center space-x-2">
-              <XCircle className="h-6 w-6 text-destructive" />
-              <CardTitle>Service Unavailable</CardTitle>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <XCircle className="h-6 w-6 text-red-500" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Service Unavailable</h2>
             </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
+            <p className="text-gray-600 dark:text-gray-300">
               {appConfig.maintenanceMessage || "The notification service is temporarily unavailable. Please try again later."}
             </p>
             {appConfig.lastUpdated && (
-              <p className="text-sm text-muted-foreground mt-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
                 Last updated: {new Date(appConfig.lastUpdated).toLocaleString()}
               </p>
             )}
             {lastConfigCheck && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                 Config checked: {lastConfigCheck.toLocaleTimeString()}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }
 
-  const renderStatus = () => {
-    if (oneSignalState.isLoading) {
-      return (
-        <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Initializing Notification Service...</span>
-        </div>
-      )
-    }
-
-    if (oneSignalState.error) {
-      return (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {oneSignalState.error}
-            <div className="mt-2 text-sm">
-              <strong>Troubleshooting:</strong>
-              <ul className="list-disc ml-4 mt-1">
-                <li>Make sure you're accessing the site via HTTPS</li>
-                <li>Check if service worker files are accessible</li>
-                <li>Try refreshing the page</li>
-              </ul>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )
-    }
-
-    if (oneSignalState.permission === "denied") {
-      return (
-        <Alert variant="destructive">
-          <AlertTitle>Notifications Blocked</AlertTitle>
-          <AlertDescription>
-            You have blocked notifications. Please enable them in your browser settings:
-            <ol className="mt-2 ml-4 list-decimal text-sm">
-              <li>Click the lock icon in your address bar</li>
-              <li>Find &quot;Notifications&quot; in the permissions</li>
-              <li>Change it to &quot;Allow&quot;</li>
-              <li>Refresh this page</li>
-            </ol>
-          </AlertDescription>
-        </Alert>
-      )
-    }
-
-    if (!oneSignalState.isSubscribed) {
-      return (
-        <div className="space-y-4">
-          <p className="text-center text-muted-foreground">
-            {selectedCategory
-              ? "Click below to enable notifications for your selected category"
-              : "Please select a category first, then enable notifications"}
-          </p>
-          <Button
-            onClick={handleSubscribe}
-            disabled={!selectedCategory || !oneSignalState.isInitialized}
-            className="w-full"
-            size="lg"
-          >
-            <Bell className="mr-2 h-4 w-4" />
-            Enable Notifications
-          </Button>
-        </div>
-      )
-    }
-
-    return (
-      <Alert className="border-green-600 bg-green-50 dark:bg-green-950/20">
-        <CheckCircle className="h-4 w-4 text-green-600" />
-        <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
-        <AlertDescription className="text-muted-foreground">
-          <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
-          <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
-          <div className="mt-2 text-xs">
-            Push notifications will be delivered even when the website is closed, as long as you have internet connectivity.
-          </div>
-          {/* Debug info - remove in production */}
-          <div className="mt-2 text-xs opacity-50">
-            Debug: Subscribed={oneSignalState.isSubscribed.toString()}, Permission={oneSignalState.permission}
-          </div>
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl mx-auto space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
-          <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">Notification Preferences</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Select a category to receive tailored push notifications.</p>
         </div>
 
         {/* Config Error Alert */}
         {configError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuration Warning</AlertTitle>
-            <AlertDescription>
-              {configError}. The app is running with default settings.
-            </AlertDescription>
-          </Alert>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Configuration Warning</h3>
+                <div className="mt-1 text-sm text-red-700 dark:text-red-300">
+                  {configError}. The app is running with default settings.
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Notification Status</CardTitle>
-            {lastConfigCheck && (
-              <CardDescription className="text-xs">
-                Last config check: {lastConfigCheck.toLocaleTimeString()}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent>{renderStatus()}</CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Choose Your Category</CardTitle>
-            <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
+        {/* Categories Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Choose Your Category</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">Select the type of notifications you'd like to receive</p>
+            
+            <div className="space-y-4">
               {categories.map((category) => (
-                <div
+                <label
                   key={category.id}
-                  className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
+                  className="flex items-start p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                 >
-                  <RadioGroupItem value={category.id} id={category.id} />
-                  <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
-                    <div className="font-semibold">{category.name}</div>
-                    <div className="text-sm text-muted-foreground">{category.description}</div>
-                  </Label>
-                </div>
+                  <input
+                    type="radio"
+                    name="category"
+                    value={category.id}
+                    checked={selectedCategory === category.id}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="mt-1 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div className="ml-3 flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white">{category.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{category.description}</div>
+                  </div>
+                </label>
               ))}
-            </RadioGroup>
-          </CardContent>
-        </Card>
+            </div>
 
-        <footer className="text-center text-sm text-muted-foreground">
+            {/* Subscribe Button */}
+            {!oneSignalState.isSubscribed && (
+              <div className="mt-6">
+                <button
+                  onClick={handleSubscribe}
+                  disabled={!selectedCategory || !oneSignalState.isInitialized || oneSignalState.isLoading}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  Enable Notifications
+                </button>
+                {!selectedCategory && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-2">
+                    Please select a category first
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Success Message */}
+            {oneSignalState.isSubscribed && (
+              <div className="mt-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Notifications enabled for {categories.find(c => c.id === selectedCategory)?.name}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Error Messages */}
+            {oneSignalState.permission === "denied" && (
+              <div className="mt-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Notifications Blocked</h3>
+                    <div className="mt-1 text-sm text-red-700 dark:text-red-300">
+                      Please enable notifications in your browser settings to continue.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {oneSignalState.error && (
+              <div className="mt-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error</h3>
+                    <div className="mt-1 text-sm text-red-700 dark:text-red-300">
+                      {oneSignalState.error}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <footer className="text-center text-sm text-gray-500 dark:text-gray-400">
           <p>Nader Mahbub Khan</p>
         </footer>
       </div>
