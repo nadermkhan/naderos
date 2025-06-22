@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import addNotification from 'react-push-notification'
 
 const ONE_SIGNAL_APP_ID = "4b3e3efe-31dc-4d38-aa48-772633edba61"
-const CONFIG_URL = ""
+const CONFIG_URL = "https://cdn.jsdelivr.net/gh/nadermkhan/cfgl@latest/config.json"
 
 const categories = [
   {
@@ -169,7 +169,7 @@ export default function NotificationApp() {
               const subscriptionId = await window.OneSignal.User.PushSubscription.id
               
               // Get user ID using the correct method
-              const onesignalId = await window.OneSignal.User.onesignalId
+              const onesignalId = await window.OneSignal.User.getOnesignalId()
 
               console.log('OneSignal State:', {
                 permission,
@@ -282,7 +282,7 @@ export default function NotificationApp() {
           const subscriptionId = await OneSignalInstance.User.PushSubscription.id
           
           // Get user ID - this is the correct way
-          const onesignalId = await OneSignalInstance.User.onesignalId
+          const onesignalId = await OneSignalInstance.User.getOnesignalId()
 
           console.log('OneSignal initialized with:', {
             permission,
@@ -319,9 +319,9 @@ export default function NotificationApp() {
           // Event listeners
           OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
             const isNowOptedIn = event.current.optedIn
-            const newOnesignalId = await OneSignalInstance.User.onesignalId
+            const newOnesignalId = await OneSignalInstance.User.getOnesignalId()
 
-            console.log('Subscription changed', { 
+            console.log('Subscription changed:', {
               isNowOptedIn,
               newOnesignalId
             })
@@ -410,7 +410,7 @@ export default function NotificationApp() {
       
       // Wait a bit for the subscription to complete
       setTimeout(async () => {
-        const onesignalId = await window.OneSignal.User.onesignalId
+        const onesignalId = await window.OneSignal.User.getOnesignalId()
         if (onesignalId) {
           console.log('User subscribed with ID:', onesignalId)
         }
@@ -600,7 +600,28 @@ export default function NotificationApp() {
           <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
         </div>
 
-   
+        {/* Config Error Alert */}
+        {configError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuration Warning</AlertTitle>
+            <AlertDescription>
+              {configError}. The app is running with default settings.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Notification Status</CardTitle>
+            {lastConfigCheck && (
+              <CardDescription className="text-xs">
+                Last config check: {lastConfigCheck.toLocaleTimeString()}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>{renderStatus()}</CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
