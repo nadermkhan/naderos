@@ -44,7 +44,7 @@ export default function NotificationApp() {
   const [appConfig, setAppConfig] = useState(null)
   const [configLoading, setConfigLoading] = useState(true)
   const [configError, setConfigError] = useState(null)
-  const [lastConfigCheck, setLastConfigCheck] = useState(null)
+ const [lastConfigCheck, setLastConfigCheck] = useState(new Date())
   const [oneSignalState, setOneSignalState] = useState({
     isLoading: true,
     isInitialized: false,
