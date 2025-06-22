@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 
 const ONE_SIGNAL_APP_ID = "a405e5ea-deec-490e-bdc3-38b65b4ec31c"
 // Replace with your actual config URL
-const CONFIG_URL = "https://raw.githubusercontent.com/nadermkhan/cfgl/main/config.json"
+const CONFIG_URL = "https://cdn.jsdelivr.net/gh/nadermkhan/cfgl@latest/config.json"
 
 const categories = [
   {
