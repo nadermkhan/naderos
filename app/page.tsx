@@ -600,28 +600,7 @@ export default function NotificationApp() {
           <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
         </div>
 
-        {/* Config Error Alert */}
-        {configError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuration Warning</AlertTitle>
-            <AlertDescription>
-              {configError}. The app is running with default settings.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notification Status</CardTitle>
-            {lastConfigCheck && (
-              <CardDescription className="text-xs">
-                Last config check: {lastConfigCheck.toLocaleTimeString()}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent>{renderStatus()}</CardContent>
-        </Card>
+   
 
         <Card>
           <CardHeader>
