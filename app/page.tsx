@@ -84,40 +84,29 @@ export default function NotificationApp() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const initializationRef = useRef(false)
 
-  // Fetch remote config with aggressive cache busting
+  // Fetch remote config - Fixed CORS issue
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         setConfigLoading(true)
         
-        // Multiple cache-busting strategies
+        // Use cache busting in URL only, no custom headers for CDN
         const timestamp = Date.now()
         const random = Math.random().toString(36).substring(7)
-        const urlWithParams = `${CONFIG_URL}?t=${timestamp}&r=${random}&nocache=true`
-        
-        // Create a new Headers object to ensure no caching
-        const headers = new Headers({
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          'Accept': 'application/json',
-        })
+        const urlWithParams = `${CONFIG_URL}?t=${timestamp}&r=${random}`
         
         const response = await fetch(urlWithParams, {
           method: 'GET',
-          headers: headers,
-          cache: 'no-store',
+          // Don't send custom headers that might cause CORS issues
+          cache: 'no-cache',
           mode: 'cors',
-          credentials: 'omit',
         })
         
         if (!response.ok) {
           throw new Error(`Failed to fetch config: ${response.status}`)
         }
         
-        // Clone the response to ensure we're reading fresh data
-        const clonedResponse = response.clone()
-        const data = await clonedResponse.json()
+        const data = await response.json()
         
         setAppConfig(data)
         setConfigError(null)
@@ -169,7 +158,7 @@ export default function NotificationApp() {
     }
   }, [])
 
-  // Initialize OneSignal with enhanced background notification support
+  // Initialize OneSignal with proper user detection
   useEffect(() => {
     if (!appConfig?.appEnabled || configLoading) {
       return
@@ -177,49 +166,52 @@ export default function NotificationApp() {
 
     const initializeOneSignal = async () => {
       if (initializationRef.current || window.OneSignalInitialized) {
+        // If already initialized, just update the state
+        if (window.OneSignal && window.OneSignal.initialized) {
+          try {
+            const isPushSupported = window.OneSignal.Notifications.isPushSupported()
+            if (isPushSupported) {
+              const permission = await window.OneSignal.Notifications.permission
+              const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn
+              const subscriptionId = await window.OneSignal.User.PushSubscription.id
+              const onesignalId = await window.OneSignal.User.getOnesignalId()
+
+              console.log('OneSignal State:', {
+                permission,
+                isOptedIn,
+                subscriptionId,
+                onesignalId
+              })
+
+              setOneSignalState({
+                isLoading: false,
+                isInitialized: true,
+                isSubscribed: isOptedIn,
+                permission,
+                userId: onesignalId || subscriptionId,
+                error: null,
+              })
+
+              if (isOptedIn && onesignalId) {
+                const savedCategory = localStorage.getItem("selectedNotificationCategory")
+                if (savedCategory) {
+                  await window.OneSignal.User.addTags({
+                    category: savedCategory,
+                    subscribed_at: new Date().toISOString()
+                  })
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error checking OneSignal state:", error)
+          }
+        }
         return
       }
       initializationRef.current = true
 
       try {
         if (typeof window === "undefined") {
-          return
-        }
-
-        // Check if already initialized
-        if (window.OneSignal && window.OneSignal.initialized) {
-          const isPushSupported = window.OneSignal.Notifications.isPushSupported()
-          if (isPushSupported) {
-            const permission = window.OneSignal.Notifications.permission
-            const isOptedIn = await window.OneSignal.User.PushSubscription.optedIn
-            const subscriptionId = isOptedIn ? await window.OneSignal.User.PushSubscription.id : null
-
-            setOneSignalState({
-              isLoading: false,
-              isInitialized: true,
-              isSubscribed: isOptedIn,
-              permission,
-              userId: subscriptionId,
-              error: null,
-            })
-
-            if (isOptedIn && subscriptionId) {
-              const savedCategory = localStorage.getItem("selectedNotificationCategory")
-              if (savedCategory) {
-                // Add tags for category filtering
-                await window.OneSignal.User.addTags({
-                  category: savedCategory,
-                  subscribed_at: new Date().toISOString()
-                })
-                
-                localStorage.setItem("notificationSubscription", JSON.stringify({
-                  userId: subscriptionId,
-                  category: savedCategory,
-                  subscribedAt: new Date().toISOString()
-                }))
-              }
-            }
-          }
           return
         }
 
@@ -267,7 +259,6 @@ export default function NotificationApp() {
           notifyButton: {
             enable: false
           },
-          // Enable service worker for background notifications
           serviceWorkerParam: {
             scope: "/",
             workerName: "OneSignalSDKWorker.js",
@@ -276,82 +267,84 @@ export default function NotificationApp() {
               scope: "/"
             }
           },
-          // Persistence settings
           persistNotification: true,
           webhooks: {
             cors: true,
           },
-          // Auto resubscribe
           autoResubscribe: true,
         })
 
         window.OneSignalInitialized = true
 
+        // Wait for initialization to complete
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
         const isPushSupported = OneSignalInstance.Notifications.isPushSupported()
 
         if (isPushSupported) {
-          const permission = OneSignalInstance.Notifications.permission
+          const permission = await OneSignalInstance.Notifications.permission
           const isOptedIn = await OneSignalInstance.User.PushSubscription.optedIn
+          const subscriptionId = await OneSignalInstance.User.PushSubscription.id
+          const onesignalId = await OneSignalInstance.User.getOnesignalId()
 
-          if (isOptedIn) {
-            const subscriptionId = await OneSignalInstance.User.PushSubscription.id
+          console.log('OneSignal initialized with:', {
+            permission,
+            isOptedIn,
+            subscriptionId,
+            onesignalId
+          })
 
-            setOneSignalState({
-              isLoading: false,
-              isInitialized: true,
-              isSubscribed: true,
-              permission,
-              userId: subscriptionId,
-              error: null,
-            })
+          setOneSignalState({
+            isLoading: false,
+            isInitialized: true,
+            isSubscribed: isOptedIn,
+            permission,
+            userId: onesignalId || subscriptionId,
+            error: null,
+          })
 
+          if (isOptedIn && onesignalId) {
             const savedCategory = localStorage.getItem("selectedNotificationCategory")
-            if (savedCategory && subscriptionId) {
-              // Set tags for category filtering
+            if (savedCategory) {
               await OneSignalInstance.User.addTags({
                 category: savedCategory,
                 subscribed_at: new Date().toISOString()
               })
               
               localStorage.setItem("notificationSubscription", JSON.stringify({
-                userId: subscriptionId,
+                userId: onesignalId,
                 category: savedCategory,
                 subscribedAt: new Date().toISOString()
               }))
             }
-          } else {
-            setOneSignalState({
-              isLoading: false,
-              isInitialized: true,
-              isSubscribed: false,
-              permission,
-              userId: null,
-              error: null,
-            })
           }
 
           // Event listeners
           OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
             const isNowOptedIn = event.current.optedIn
-            const newId = event.current.id
+            const newOnesignalId = await OneSignalInstance.User.getOnesignalId()
+
+            console.log('Subscription changed:', {
+              isNowOptedIn,
+              newOnesignalId
+            })
 
             setOneSignalState((prev) => ({
               ...prev,
               isSubscribed: isNowOptedIn,
-              userId: isNowOptedIn ? newId : null,
+              userId: newOnesignalId,
             }))
 
-            if (isNowOptedIn && newId) {
+            if (isNowOptedIn && newOnesignalId) {
               const savedCategory = localStorage.getItem("selectedNotificationCategory")
               if (savedCategory) {
-                // Update tags
                 await OneSignalInstance.User.addTags({
                   category: savedCategory,
                   subscribed_at: new Date().toISOString()
                 })
                 
                 localStorage.setItem("notificationSubscription", JSON.stringify({
-                  userId: newId,
+                  userId: newOnesignalId,
                   category: savedCategory,
                   subscribedAt: new Date().toISOString()
                 }))
@@ -387,12 +380,13 @@ export default function NotificationApp() {
   useEffect(() => {
     const updateSubscriptionData = async () => {
       if (oneSignalState.isSubscribed && selectedCategory && oneSignalState.userId && window.OneSignal) {
-        // Update OneSignal tags
         try {
           await window.OneSignal.User.addTags({
             category: selectedCategory,
             last_updated: new Date().toISOString()
           })
+          
+          console.log('Tags updated for user:', oneSignalState.userId, { category: selectedCategory })
         } catch (error) {
           console.error("Error updating tags:", error)
         }
@@ -414,7 +408,16 @@ export default function NotificationApp() {
         return
       }
 
+      // Use the prompt method
       await window.OneSignal.Slidedown.promptPush()
+      
+      // Wait a bit for the subscription to complete
+      setTimeout(async () => {
+        const onesignalId = await window.OneSignal.User.getOnesignalId()
+        if (onesignalId) {
+          console.log('User subscribed with ID:', onesignalId)
+        }
+      }, 2000)
     } catch (error) {
       console.error("Subscribe error:", error)
     }
@@ -427,12 +430,12 @@ export default function NotificationApp() {
     const category = categories.find((cat) => cat.id === categoryId)
 
     if (category) {
-      // Use react-push-notification for category change
+           // Use react-push-notification for category change
       addNotification({
         title: 'Category Selected',
         subtitle: category.name,
         message: `You've selected ${category.name} notifications`,
-                theme: 'darkblue',
+        theme: 'darkblue',
         native: true,
         duration: 5000,
         vibrate: 1,
@@ -447,6 +450,8 @@ export default function NotificationApp() {
             category_name: category.name,
             updated_at: new Date().toISOString()
           })
+          
+          console.log('Category updated for user:', oneSignalState.userId, categoryId)
           
           localStorage.setItem("notificationSubscription", JSON.stringify({
             userId: oneSignalState.userId,
@@ -580,6 +585,10 @@ export default function NotificationApp() {
           <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
           <div className="mt-2 text-xs">
             Push notifications will be delivered even when the website is closed, as long as you have internet connectivity.
+          </div>
+          {/* Debug info - remove in production */}
+          <div className="mt-2 text-xs opacity-50">
+            Debug: Subscribed={oneSignalState.isSubscribed.toString()}, Permission={oneSignalState.permission}
           </div>
         </AlertDescription>
       </Alert>
