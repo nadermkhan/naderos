@@ -101,8 +101,6 @@ export default function NotificationApp() {
           cache: 'no-store', // Most aggressive no-cache setting
           headers: {
             'Accept': 'application/json',
-            'Pragma': 'no-cache',
-            'Expires': '0',
           },
           // For some browsers, we need to be extra explicit
           mode: 'cors',
