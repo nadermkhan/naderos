@@ -321,7 +321,7 @@ export default function NotificationApp() {
             const isNowOptedIn = event.current.optedIn
             const newOnesignalId = await OneSignalInstance.User.onesignalId
 
-            console.log('Subscription changed:', {
+            console.log('Subscription changed', { 
               isNowOptedIn,
               newOnesignalId
             })
@@ -410,7 +410,7 @@ export default function NotificationApp() {
       
       // Wait a bit for the subscription to complete
       setTimeout(async () => {
-        const onesignalId = await window.OneSignal.
+        const onesignalId = await window.OneSignal.User.onesignalId
         if (onesignalId) {
           console.log('User subscribed with ID:', onesignalId)
         }
