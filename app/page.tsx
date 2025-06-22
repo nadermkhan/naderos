@@ -169,7 +169,7 @@ export default function NotificationApp() {
               const subscriptionId = await window.OneSignal.User.PushSubscription.id
               
               // Get user ID using the correct method
-              const onesignalId = await window.OneSignal.User.getOnesignalId()
+              const onesignalId = await window.OneSignal.User.onesignalId
 
               console.log('OneSignal State:', {
                 permission,
@@ -282,7 +282,7 @@ export default function NotificationApp() {
           const subscriptionId = await OneSignalInstance.User.PushSubscription.id
           
           // Get user ID - this is the correct way
-          const onesignalId = await OneSignalInstance.User.getOnesignalId()
+          const onesignalId = await OneSignalInstance.User.onesignalId
 
           console.log('OneSignal initialized with:', {
             permission,
@@ -319,7 +319,7 @@ export default function NotificationApp() {
           // Event listeners
           OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
             const isNowOptedIn = event.current.optedIn
-            const newOnesignalId = await OneSignalInstance.User.getOnesignalId()
+            const newOnesignalId = await OneSignalInstance.User.onesignalId
 
             console.log('Subscription changed:', {
               isNowOptedIn,
@@ -410,7 +410,7 @@ export default function NotificationApp() {
       
       // Wait a bit for the subscription to complete
       setTimeout(async () => {
-        const onesignalId = await window.OneSignal.User.getOnesignalId()
+        const onesignalId = await window.OneSignal.
         if (onesignalId) {
           console.log('User subscribed with ID:', onesignalId)
         }
