@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import addNotification from 'react-push-notification'
 
-const ONE_SIGNAL_APP_ID = "5dc02504-2bbe-4717-8696-392a7ab08c82"
+const ONE_SIGNAL_APP_ID = "4b3e3efe-31dc-4d38-aa48-772633edba61"
 const CONFIG_URL = ""
 
 const categories = [
