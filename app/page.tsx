@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import addNotification from 'react-push-notification'
 
 const ONE_SIGNAL_APP_ID = "a405e5ea-deec-490e-bdc3-38b65b4ec31c"
-// Replace with your actual config URL
 const CONFIG_URL = "https://cdn.jsdelivr.net/gh/nadermkhan/cfgl@latest/config.json"
 
 const categories = [
@@ -82,27 +82,31 @@ export default function NotificationApp() {
     error: null,
   })
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [showNotification, setShowNotification] = useState(false)
-  const [notificationMessage, setNotificationMessage] = useState("")
   const initializationRef = useRef(false)
 
-  // Fetch remote config with cache busting
+  // Fetch remote config with aggressive cache busting
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         setConfigLoading(true)
         
-        // Add timestamp to URL to prevent caching
-        const timestamp = new Date().getTime()
-        const urlWithTimestamp = `${CONFIG_URL}?t=${timestamp}&nocache=${Math.random()}`
+        // Multiple cache-busting strategies
+        const timestamp = Date.now()
+        const random = Math.random().toString(36).substring(7)
+        const urlWithParams = `${CONFIG_URL}?t=${timestamp}&r=${random}&nocache=true`
         
-        const response = await fetch(urlWithTimestamp, {
+        // Create a new Headers object to ensure no caching
+        const headers = new Headers({
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Accept': 'application/json',
+        })
+        
+        const response = await fetch(urlWithParams, {
           method: 'GET',
-          cache: 'no-store', // Most aggressive no-cache setting
-          headers: {
-            'Accept': 'application/json',
-          },
-          // For some browsers, we need to be extra explicit
+          headers: headers,
+          cache: 'no-store',
           mode: 'cors',
           credentials: 'omit',
         })
@@ -111,17 +115,18 @@ export default function NotificationApp() {
           throw new Error(`Failed to fetch config: ${response.status}`)
         }
         
-        const data = await response.json()
+        // Clone the response to ensure we're reading fresh data
+        const clonedResponse = response.clone()
+        const data = await clonedResponse.json()
+        
         setAppConfig(data)
         setConfigError(null)
         setLastConfigCheck(new Date())
         
-        // Log for debugging
-        console.log('Config fetched at:', new Date().toISOString(), data)
+        console.log('Config fetched:', new Date().toISOString(), data)
       } catch (error) {
         console.error("Error fetching config:", error)
         setConfigError("Failed to load app configuration")
-        // Default to enabled if config fetch fails
         setAppConfig({ appEnabled: true })
       } finally {
         setConfigLoading(false)
@@ -131,25 +136,32 @@ export default function NotificationApp() {
     // Initial fetch
     fetchConfig()
     
-    // Refresh config periodically with shorter interval
-    const interval = setInterval(fetchConfig, 30000) // Check every 30 seconds
+    // Refresh config every 30 seconds
+    const interval = setInterval(fetchConfig, 30000)
     
-    // Also check on visibility change (when user returns to tab)
+    // Check on visibility change
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         fetchConfig()
       }
     }
     
+    // Check on focus
+    const handleFocus = () => {
+      fetchConfig()
+    }
+    
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
     
     return () => {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [])
 
-  // Load saved category from localStorage on component mount
+  // Load saved category from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("selectedNotificationCategory")
     if (saved) {
@@ -157,8 +169,8 @@ export default function NotificationApp() {
     }
   }, [])
 
+  // Initialize OneSignal with enhanced background notification support
   useEffect(() => {
-    // Only initialize OneSignal if app is enabled
     if (!appConfig?.appEnabled || configLoading) {
       return
     }
@@ -174,7 +186,7 @@ export default function NotificationApp() {
           return
         }
 
-        // Check if OneSignal is already initialized
+        // Check if already initialized
         if (window.OneSignal && window.OneSignal.initialized) {
           const isPushSupported = window.OneSignal.Notifications.isPushSupported()
           if (isPushSupported) {
@@ -191,10 +203,15 @@ export default function NotificationApp() {
               error: null,
             })
 
-            // Store subscription info with category in localStorage
             if (isOptedIn && subscriptionId) {
               const savedCategory = localStorage.getItem("selectedNotificationCategory")
               if (savedCategory) {
+                // Add tags for category filtering
+                await window.OneSignal.User.addTags({
+                  category: savedCategory,
+                  subscribed_at: new Date().toISOString()
+                })
+                
                 localStorage.setItem("notificationSubscription", JSON.stringify({
                   userId: subscriptionId,
                   category: savedCategory,
@@ -218,6 +235,7 @@ export default function NotificationApp() {
           const script = document.createElement("script")
           script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
           script.async = true
+          script.defer = true
 
           script.onload = () => {
             window.OneSignalDeferred.push(() => {
@@ -225,7 +243,7 @@ export default function NotificationApp() {
             })
           }
 
-          script.onerror = (error) => {
+          script.onerror = () => {
             reject(new Error("Failed to load OneSignal SDK"))
           }
 
@@ -242,14 +260,30 @@ export default function NotificationApp() {
           }
         })
 
-        // Initialize OneSignal
+        // Initialize with enhanced configuration
         await OneSignalInstance.init({
           appId: ONE_SIGNAL_APP_ID,
           allowLocalhostAsSecureOrigin: true,
           notifyButton: {
             enable: false
-          }
-        });
+          },
+          // Enable service worker for background notifications
+          serviceWorkerParam: {
+            scope: "/",
+            workerName: "OneSignalSDKWorker.js",
+            updaterWorkerName: "OneSignalSDKUpdaterWorker.js",
+            registrationOptions: {
+              scope: "/"
+            }
+          },
+          // Persistence settings
+          persistNotification: true,
+          webhooks: {
+            cors: true,
+          },
+          // Auto resubscribe
+          autoResubscribe: true,
+        })
 
         window.OneSignalInitialized = true
 
@@ -271,9 +305,14 @@ export default function NotificationApp() {
               error: null,
             })
 
-            // Store subscription info with category in localStorage
             const savedCategory = localStorage.getItem("selectedNotificationCategory")
             if (savedCategory && subscriptionId) {
+              // Set tags for category filtering
+              await OneSignalInstance.User.addTags({
+                category: savedCategory,
+                subscribed_at: new Date().toISOString()
+              })
+              
               localStorage.setItem("notificationSubscription", JSON.stringify({
                 userId: subscriptionId,
                 category: savedCategory,
@@ -291,7 +330,7 @@ export default function NotificationApp() {
             })
           }
 
-          // Set up event listeners
+          // Event listeners
           OneSignalInstance.User.PushSubscription.addEventListener("change", async (event: any) => {
             const isNowOptedIn = event.current.optedIn
             const newId = event.current.id
@@ -302,10 +341,15 @@ export default function NotificationApp() {
               userId: isNowOptedIn ? newId : null,
             }))
 
-            // Update localStorage when subscription changes
             if (isNowOptedIn && newId) {
               const savedCategory = localStorage.getItem("selectedNotificationCategory")
               if (savedCategory) {
+                // Update tags
+                await OneSignalInstance.User.addTags({
+                  category: savedCategory,
+                  subscribed_at: new Date().toISOString()
+                })
+                
                 localStorage.setItem("notificationSubscription", JSON.stringify({
                   userId: newId,
                   category: savedCategory,
@@ -313,7 +357,6 @@ export default function NotificationApp() {
                 }))
               }
             } else {
-              // Clear subscription data if user unsubscribes
               localStorage.removeItem("notificationSubscription")
             }
           })
@@ -340,22 +383,30 @@ export default function NotificationApp() {
     initializeOneSignal()
   }, [appConfig, configLoading])
 
-  // Update localStorage whenever subscription state or category changes
+  // Update subscription data when state changes
   useEffect(() => {
-    if (oneSignalState.isSubscribed && selectedCategory && oneSignalState.userId) {
-      localStorage.setItem("notificationSubscription", JSON.stringify({
-        userId: oneSignalState.userId,
-        category: selectedCategory,
-        subscribedAt: new Date().toISOString()
-      }))
+    const updateSubscriptionData = async () => {
+      if (oneSignalState.isSubscribed && selectedCategory && oneSignalState.userId && window.OneSignal) {
+        // Update OneSignal tags
+        try {
+          await window.OneSignal.User.addTags({
+            category: selectedCategory,
+            last_updated: new Date().toISOString()
+          })
+        } catch (error) {
+          console.error("Error updating tags:", error)
+        }
+        
+        localStorage.setItem("notificationSubscription", JSON.stringify({
+          userId: oneSignalState.userId,
+          category: selectedCategory,
+          subscribedAt: new Date().toISOString()
+        }))
+      }
     }
+    
+    updateSubscriptionData()
   }, [selectedCategory, oneSignalState.isSubscribed, oneSignalState.userId])
-
-  const showCustomNotification = (message: string) => {
-    setNotificationMessage(message)
-    setShowNotification(true)
-    setTimeout(() => setShowNotification(false), 5000)
-  }
 
   const handleSubscribe = async () => {
     try {
@@ -371,21 +422,40 @@ export default function NotificationApp() {
 
   const handleCategoryChange = async (categoryId: string) => {
     setSelectedCategory(categoryId)
-    // Save to localStorage immediately when category changes
     localStorage.setItem("selectedNotificationCategory", categoryId)
 
     const category = categories.find((cat) => cat.id === categoryId)
 
     if (category) {
-      showCustomNotification(`Selected ${category.name}`)
+      // Use react-push-notification for category change
+      addNotification({
+        title: 'Category Selected',
+        subtitle: category.name,
+        message: `You've selected ${category.name} notifications`,
+                theme: 'darkblue',
+        native: true,
+        duration: 5000,
+        vibrate: 1,
+        onClick: () => console.log('Notification clicked'),
+      })
       
-      // If already subscribed, update the subscription data
-      if (oneSignalState.isSubscribed && oneSignalState.userId) {
-        localStorage.setItem("notificationSubscription", JSON.stringify({
-          userId: oneSignalState.userId,
-          category: categoryId,
-          subscribedAt: new Date().toISOString()
-        }))
+      // If already subscribed, update OneSignal tags
+      if (oneSignalState.isSubscribed && oneSignalState.userId && window.OneSignal) {
+        try {
+          await window.OneSignal.User.addTags({
+            category: categoryId,
+            category_name: category.name,
+            updated_at: new Date().toISOString()
+          })
+          
+          localStorage.setItem("notificationSubscription", JSON.stringify({
+            userId: oneSignalState.userId,
+            category: categoryId,
+            subscribedAt: new Date().toISOString()
+          }))
+        } catch (error) {
+          console.error("Error updating OneSignal tags:", error)
+        }
       }
     }
   }
@@ -418,135 +488,162 @@ export default function NotificationApp() {
               {appConfig.maintenanceMessage || "The notification service is temporarily unavailable. Please try again later."}
             </p>
             {appConfig.lastUpdated && (
-              <p className="text-sm text-muted-foreground mt-4"> Last updated: {new Date(appConfig.lastUpdated).toLocaleString()} </p> )} {lastConfigCheck && ( <p className="text-xs text-muted-foreground mt-2"> Config checked: {lastConfigCheck.toLocaleTimeString()} </p> )} </CardContent> </Card> </div> ) }
+              <p className="text-sm text-muted-foreground mt-4">
+                Last updated: {new Date(appConfig.lastUpdated).toLocaleString()}
+              </p>
+            )}
+            {lastConfigCheck && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Config checked: {lastConfigCheck.toLocaleTimeString()}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
-const renderStatus = () => { if (oneSignalState.isLoading) { return ( <div className="flex items-center justify-center space-x-2 text-muted-foreground"> <Loader2 className="h-4 w-4 animate-spin" /> <span>Initializing Notification Service...</span> </div> ) }
-
-if (oneSignalState.error) {
-  return (
-    <Alert variant="destructive">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>
-        {oneSignalState.error}
-        <div className="mt-2 text-sm">
-          <strong>Troubleshooting:</strong>
-          <ul className="list-disc ml-4 mt-1">
-            <li>Make sure you're accessing the site via HTTPS</li>
-            <li>Check if service worker files are accessible</li>
-            <li>Try refreshing the page</li>
-          </ul>
+  const renderStatus = () => {
+    if (oneSignalState.isLoading) {
+      return (
+        <div className="flex items-center justify-center space-x-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Initializing Notification Service...</span>
         </div>
-      </AlertDescription>
-    </Alert>
-  )
-}
+      )
+    }
 
-if (oneSignalState.permission === "denied") {
-  return (
-    <Alert variant="destructive">
-      <AlertTitle>Notifications Blocked</AlertTitle>
-      <AlertDescription>
-        You have blocked notifications. Please enable them in your browser settings:
-        <ol className="mt-2 ml-4 list-decimal text-sm">
-          <li>Click the lock icon in your address bar</li>
-          <li>Find &quot;Notifications&quot; in the permissions</li>
-          <li>Change it to &quot;Allow&quot;</li>
-          <li>Refresh this page</li>
-        </ol>
-      </AlertDescription>
-    </Alert>
-  )
-}
+    if (oneSignalState.error) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {oneSignalState.error}
+            <div className="mt-2 text-sm">
+              <strong>Troubleshooting:</strong>
+              <ul className="list-disc ml-4 mt-1">
+                <li>Make sure you're accessing the site via HTTPS</li>
+                <li>Check if service worker files are accessible</li>
+                <li>Try refreshing the page</li>
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )
+    }
 
-if (!oneSignalState.isSubscribed) {
-  return (
-    <div className="space-y-4">
-      <p className="text-center text-muted-foreground">
-        {selectedCategory
-          ? "Click below to enable notifications for your selected category"
-          : "Please select a category first, then enable notifications"}
-      </p>
-      <Button
-        onClick={handleSubscribe}
-        disabled={!selectedCategory || !oneSignalState.isInitialized}
-        className="w-full"
-        size="lg"
-      >
-        <Bell className="mr-2 h-4 w-4" />
-        Enable Notifications
-      </Button>
-    </div>
-  )
-}
+    if (oneSignalState.permission === "denied") {
+      return (
+        <Alert variant="destructive">
+          <AlertTitle>Notifications Blocked</AlertTitle>
+          <AlertDescription>
+            You have blocked notifications. Please enable them in your browser settings:
+            <ol className="mt-2 ml-4 list-decimal text-sm">
+              <li>Click the lock icon in your address bar</li>
+              <li>Find &quot;Notifications&quot; in the permissions</li>
+              <li>Change it to &quot;Allow&quot;</li>
+              <li>Refresh this page</li>
+            </ol>
+          </AlertDescription>
+        </Alert>
+      )
+    }
 
-return (
-  <Alert className="border-green-600 bg-green-50 dark:bg-green-950/20">
-    <CheckCircle className="h-4 w-4 text-green-600" />
-    <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
-    <AlertDescription className="text-muted-foreground">
-      <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
-      <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
-    </AlertDescription>
-  </Alert>
-)
-}
+    if (!oneSignalState.isSubscribed) {
+      return (
+        <div className="space-y-4">
+          <p className="text-center text-muted-foreground">
+            {selectedCategory
+              ? "Click below to enable notifications for your selected category"
+              : "Please select a category first, then enable notifications"}
+          </p>
+          <Button
+            onClick={handleSubscribe}
+            disabled={!selectedCategory || !oneSignalState.isInitialized}
+            className="w-full"
+            size="lg"
+          >
+            <Bell className="mr-2 h-4 w-4" />
+            Enable Notifications
+          </Button>
+        </div>
+      )
+    }
 
-return ( <div className="min-h-screen bg-background flex items-center justify-center p-4"> <div className="w-full max-w-2xl mx-auto space-y-8"> {/* Custom Notification */} {showNotification && ( <div className="fixed top-4 right-4 z-50 max-w-sm"> <Alert className="border-blue-600 bg-blue-50 dark:bg-blue-950/20"> <Bell className="h-4 w-4 text-blue-600" /> <AlertTitle className="text-blue-600">Notification</AlertTitle> <AlertDescription className="text-sm">{notificationMessage}</AlertDescription> </Alert> </div> )}
-
-    <div className="text-center">
-      <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
-      <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
-    </div>
-
-    {/* Config Error Alert */}
-    {configError && (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Configuration Warning</AlertTitle>
-        <AlertDescription>
-          {configError}. The app is running with default settings.
+    return (
+      <Alert className="border-green-600 bg-green-50 dark:bg-green-950/20">
+        <CheckCircle className="h-4 w-4 text-green-600" />
+        <AlertTitle className="text-green-600">Notifications Enabled!</AlertTitle>
+        <AlertDescription className="text-muted-foreground">
+          <div>Your User ID: {oneSignalState.userId || "Loading..."}</div>
+          <div>Category: {categories.find(c => c.id === selectedCategory)?.name || "None selected"}</div>
+          <div className="mt-2 text-xs">
+            Push notifications will be delivered even when the website is closed, as long as you have internet connectivity.
+          </div>
         </AlertDescription>
       </Alert>
-    )}
+    )
+  }
 
-    <Card>
-      <CardHeader>
-        <CardTitle>Notification Status</CardTitle>
-        {lastConfigCheck && (
-          <CardDescription className="text-xs">
-            Last config check: {lastConfigCheck.toLocaleTimeString()}
-          </CardDescription>
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl mx-auto space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight">Notification Preferences</h1>
+          <p className="text-muted-foreground mt-2">Select a category to receive tailored push notifications.</p>
+        </div>
+
+        {/* Config Error Alert */}
+        {configError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuration Warning</AlertTitle>
+            <AlertDescription>
+              {configError}. The app is running with default settings.
+            </AlertDescription>
+          </Alert>
         )}
-      </CardHeader>
-      <CardContent>{renderStatus()}</CardContent>
-    </Card>
 
-    <Card>
-      <CardHeader>
-        <CardTitle>Choose Your Category</CardTitle>
-        <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
-            >
-              <RadioGroupItem value={category.id} id={category.id} />
-              <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
-                <div className="font-semibold">{category.name}</div>
-                <div className="text-sm text-muted-foreground">{category.description}</div>
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
-      </CardContent>
-    </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Notification Status</CardTitle>
+            {lastConfigCheck && (
+              <CardDescription className="text-xs">
+                Last config check: {lastConfigCheck.toLocaleTimeString()}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>{renderStatus()}</CardContent>
+        </Card>
 
-    <footer className="text-center text-sm text-muted-foreground">
-      <p>Nader Mahbub Khan</p> 
-    </footer>
-  </div>
-</div>)}
+        <Card>
+          <CardHeader>
+            <CardTitle>Choose Your Category</CardTitle>
+            <CardDescription>Select the type of notifications you&apos;d like to receive</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup value={selectedCategory || ""} onValueChange={handleCategoryChange} className="space-y-4">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="flex items-start space-x-3 p-4 rounded-lg border hover:bg-accent transition-colors"
+                >
+                  <RadioGroupItem value={category.id} id={category.id} />
+                  <Label htmlFor={category.id} className="flex-1 cursor-pointer space-y-1">
+                    <div className="font-semibold">{category.name}</div>
+                    <div className="text-sm text-muted-foreground">{category.description}</div>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
+        <footer className="text-center text-sm text-muted-foreground">
+          <p>Nader Mahbub Khan</p>
+        </footer>
+      </div>
+    </div>
+  )
+}
